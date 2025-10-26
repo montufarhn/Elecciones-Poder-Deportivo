@@ -191,29 +191,46 @@ function renderTable(tableId, labels, values){
   }
 }
 
+/* Helper para ordenar los datos de mayor a menor */
+function sortData(data) {
+  // 1. Combina etiquetas y totales en un solo array de objetos
+  const combined = data.labels.map((label, index) => ({
+    label: label,
+    total: data.totals[index]
+  }));
+
+  // 2. Ordena el array combinado de mayor a menor voto
+  combined.sort((a, b) => b.total - a.total);
+
+  // 3. Separa nuevamente en dos arrays, ya ordenados
+  const sortedLabels = combined.map(item => item.label);
+  const sortedTotals = combined.map(item => item.total);
+
+  return { labels: sortedLabels, totals: sortedTotals };
+}
+
 /* Main refresh flow */
 async function refreshAll(){
   try{
     const t0 = Date.now();
-    const [pres, dip, alc] = await Promise.all([
+    let [pres, dip, alc] = await Promise.all([ // Usamos 'let' para poder reasignar
       fetchTotals(CSV_URL_PRES),
       fetchTotals(CSV_URL_DIP),
       fetchTotals(CSV_URL_ALC),
     ]);
 
-    // Presidenciales
+    // Ordenamos los datos de cada elección
+    pres = sortData(pres);
+    dip = sortData(dip);
+    alc = sortData(alc);
+
+    // Renderizamos todo con los datos ya ordenados
     renderBarChart('chartPres', pres.labels, pres.totals, 'Votos Presidenciales');
     renderTable('tablePres', pres.labels, pres.totals);
-
-    // Diputados
-    const { labels: dipLabels, totals: dipVals } = dip;
-    renderBarChart('chartDip', dipLabels, dipVals, 'Votos Diputados');
-    renderTable('tableDip', dipLabels, dipVals);
-
-    // Alcaldes
-    const { labels: alcLabels, totals: alcVals } = alc;
-    renderBarChart('chartAlc', alcLabels, alcVals, 'Votos Alcaldes');
-    renderTable('tableAlc', alcLabels, alcVals);
+    renderBarChart('chartDip', dip.labels, dip.totals, 'Votos Diputados');
+    renderTable('tableDip', dip.labels, dip.totals);
+    renderBarChart('chartAlc', alc.labels, alc.totals, 'Votos Alcaldes');
+    renderTable('tableAlc', alc.labels, alc.totals);
 
     // last updated
     document.getElementById('lastUpdated').textContent = 'Última actualización: ' + new Date().toLocaleString('es-HN');
