@@ -225,7 +225,10 @@ function renderBarChart(canvasId, labels, values, title, imageUrls){
     data,
     options:{
       indexAxis: 'y', // Barras horizontales para mejor legibilidad
-      animation:false,
+      // Mantenemos las animaciones de interacción (tooltips) pero desactivamos la de carga inicial
+      animation: {
+        duration: 0
+      },
       // Ajusta el padding izquierdo para dar espacio a las imágenes y etiquetas largas
       layout: {
         padding: { left: 40 }
