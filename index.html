@@ -14,15 +14,6 @@
       --card-shadow: rgba(0,0,0,0.1);
       --border-color: #dee2e6;
     }
-    body.dark-theme {
-      --bg-color: #0b1220;
-      --text-color: #fff;
-      --text-muted-color: rgba(255,255,255,0.7);
-      --brand-color: #9fa8da;
-      --card-bg: rgba(255,255,255,0.03);
-      --card-shadow: rgba(0,0,0,0.4);
-      --border-color: rgba(255,255,255,0.06);
-    }
     body{font-family:system-ui,Segoe UI,Roboto,Arial;margin:0;background:var(--bg-color);color:var(--text-color);transition: background-color 0.3s, color 0.3s;}
     .container{padding:18px;max-width:1200px;margin:0 auto;}
     header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
@@ -33,15 +24,10 @@
     th,td{padding:8px;text-align:left;border-bottom:1px solid var(--border-color);}
     .small{font-size:0.85rem;color:var(--text-muted-color);}
     .big-number{font-size:2rem;font-weight:700;}
-    #lastUpdated{font-size:0.9rem;color:var(--text-muted-color);}
-    #theme-toggle {
-      padding: 6px 12px;
-      border: 1px solid var(--border-color);
-      background-color: var(--card-bg);
-      color: var(--text-color);
-      border-radius: 6px;
-      cursor: pointer;
-      transition: background-color 0.3s;
+    .card-summary {
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border-color);
     }
     @media (max-width:900px){.grid{grid-template-columns:1fr}}
   </style>
@@ -52,7 +38,6 @@
   <div class="container">
     <header>
       <div class="brand">TREP-PD | Transmisión de Resultados Electorales Preliminares de Poder Deportivo</div>
-      <button id="theme-toggle">Cambiar Tema</button>
       <div id="lastUpdated" class="small">Última actualización: --</div>
     </header>
 
@@ -60,6 +45,7 @@
       <!-- Presidenciales -->
       <div class="card">
         <h3>Presidenciales</h3>
+        <div class="card-summary" id="summaryPres"></div>
         <canvas id="chartPres" height="140"></canvas>
         <table id="tablePres" style="margin-top:10px">
           <thead><tr><th>Candidato</th><th>Votos</th><th>%</th></tr></thead>
@@ -70,6 +56,7 @@
       <!-- Diputados (resumen) -->
       <div class="card">
         <h3>Diputados</h3>
+        <div class="card-summary" id="summaryDip"></div>
         <canvas id="chartDip" height="140"></canvas>
         <table id="tableDip" style="margin-top:10px">
           <thead><tr><th>Candidato</th><th>Votos</th><th>%</th></tr></thead>
@@ -80,6 +67,7 @@
       <!-- Alcaldes -->
       <div class="card" style="grid-column:1 / -1">
         <h3>Alcaldes</h3>
+        <div class="card-summary" id="summaryAlc"></div>
         <canvas id="chartAlc" height="90"></canvas>
         <table id="tableAlc" style="margin-top:10px">
           <thead><tr><th>Candidato</th><th>Votos</th><th>%</th></tr></thead>
@@ -90,33 +78,15 @@
   </div>
 
 <script>
-/* --- LÓGICA DEL TEMA OSCURO/CLARO --- */
-const themeToggle = document.getElementById('theme-toggle');
-const body = document.body;
-
-// Función para aplicar el tema
-function applyTheme(theme) {
-  if (theme === 'dark') {
-    body.classList.add('dark-theme');
-    themeToggle.textContent = 'Tema Claro';
-  } else {
-    body.classList.remove('dark-theme');
-    themeToggle.textContent = 'Tema Oscuro';
-  }
-  localStorage.setItem('theme', theme);
-}
-
-themeToggle.addEventListener('click', () => {
-  const newTheme = body.classList.contains('dark-theme') ? 'light' : 'dark';
-  applyTheme(newTheme);
-});
-
 /* CONFIG: Pega aquí la URL de tu aplicación web de Google Apps Script */
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxJq8VFpY9yi9G5tWyPnQmue4Ww_6Yn_wS6ess2K0Qj3y78TnhaeF4sIkhnevw0L1AR/exec"; // <-- ¡REEMPLAZA ESTO!
 
 const CSV_URL_PRES = `${SCRIPT_URL}?gid=0`;       // GID de la hoja de Presidenciales
 const CSV_URL_DIP  = `${SCRIPT_URL}?gid=994753743`; // GID de la hoja de Diputados
 const CSV_URL_ALC  = `${SCRIPT_URL}?gid=353257859`; // GID de la hoja de Alcaldes
+
+/* CONFIG: Censo electoral local (sin contar el extranjero) */
+const CENSO_TOTAL = 6026477;
 
 /* Utility: simple CSV parser (works con CSV básico, sin comillas complejas) */
 function parseCSV(text) {
@@ -235,9 +205,8 @@ function renderBarChart(canvasId, labels, values, title, imageUrls){
       }),
     }]
   };
-  const isDark = document.body.classList.contains('dark-theme');
-  const gridColor = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
-  const labelColor = isDark ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)';
+  const gridColor = 'rgba(0, 0, 0, 0.1)';
+  const labelColor = 'rgba(0, 0, 0, 0.8)';
 
   const cfg = {
     type:'bar',
@@ -273,14 +242,14 @@ function renderBarChart(canvasId, labels, values, title, imageUrls){
 }
 
 /* Table render for presidenciales */
-function renderTable(tableId, labels, values){
+function renderTable(tableId, labels, values, totalVotes){
   const tbody = document.querySelector(`#${tableId} tbody`);
   if (!tbody) return;
   tbody.innerHTML = '';
-  const total = values.reduce((a,b)=>a+b,0)||1;
+  const totalForPercentage = totalVotes || 1; // Evita división por cero
   for(let i=0;i<labels.length;i++){
     const tr = document.createElement('tr');
-    const p = Math.round((values[i]/total)*1000)/10;
+    const p = Math.round((values[i]/totalForPercentage)*1000)/10;
     tr.innerHTML = `<td>${labels[i]}</td><td>${values[i].toLocaleString('es-HN')}</td><td>${p}%</td>`;
     tbody.appendChild(tr);
   }
@@ -324,13 +293,27 @@ async function refreshAll(){
     dip = sortData(dip);
     alc = sortData(alc);
 
+    // --- Calcular y renderizar totales ---
+    const totalPres = pres.totals.reduce((a, b) => a + b, 0);
+    const totalDip = dip.totals.reduce((a, b) => a + b, 0);
+    const totalAlc = alc.totals.reduce((a, b) => a + b, 0);
+
+    const participationPres = ((totalPres / CENSO_TOTAL) * 100).toFixed(2);
+    const participationDip = ((totalDip / CENSO_TOTAL) * 100).toFixed(2);
+    const participationAlc = ((totalAlc / CENSO_TOTAL) * 100).toFixed(2);
+
+    document.getElementById('summaryPres').innerHTML = `<strong>Total Votos:</strong> ${totalPres.toLocaleString('es-HN')} | <strong>Participación:</strong> ${participationPres}%`;
+    document.getElementById('summaryDip').innerHTML = `<strong>Total Votos:</strong> ${totalDip.toLocaleString('es-HN')} | <strong>Participación:</strong> ${participationDip}%`;
+    document.getElementById('summaryAlc').innerHTML = `<strong>Total Votos:</strong> ${totalAlc.toLocaleString('es-HN')} | <strong>Participación:</strong> ${participationAlc}%`;
+
+
     // Renderizamos todo con los datos ya ordenados
     renderBarChart('chartPres', pres.labels, pres.totals, 'Votos Presidenciales', pres.imageUrls);
-    renderTable('tablePres', pres.labels, pres.totals);
+    renderTable('tablePres', pres.labels, pres.totals, totalPres);
     renderBarChart('chartDip', dip.labels, dip.totals, 'Votos Diputados', dip.imageUrls);
-    renderTable('tableDip', dip.labels, dip.totals);
+    renderTable('tableDip', dip.labels, dip.totals, totalDip);
     renderBarChart('chartAlc', alc.labels, alc.totals, 'Votos Alcaldes', alc.imageUrls);
-    renderTable('tableAlc', alc.labels, alc.totals);
+    renderTable('tableAlc', alc.labels, alc.totals, totalAlc);
 
     // last updated
     statusEl.textContent = 'Última actualización: ' + new Date().toLocaleString('es-HN');
@@ -342,10 +325,6 @@ async function refreshAll(){
 }
 
 /* Auto-refresh */
-// Al cargar la página, aplica el tema guardado o el preferido por el sistema
-const savedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-applyTheme(savedTheme);
-
 // Inicia la carga de datos
 refreshAll(); // Carga inicial
 setInterval(refreshAll, 120000); // Actualiza cada 2 minutos (ajustable)
