@@ -29,6 +29,11 @@
       padding-bottom: 8px;
       border-bottom: 1px solid var(--border-color);
     }
+    .card-scrollable-content {
+      max-height: 450px; /* Altura máxima para el contenido */
+      overflow-y: auto;  /* Añade una barra de scroll si el contenido es más alto */
+      padding-right: 5px; /* Espacio para la barra de scroll */
+    }
     @media (max-width:900px){.grid{grid-template-columns:1fr}}
   </style>
   <!-- Chart.js -->
@@ -46,33 +51,39 @@
       <div class="card">
         <h3>Presidenciales</h3>
         <div class="card-summary" id="summaryPres"></div>
-        <canvas id="chartPres" height="140"></canvas>
-        <table id="tablePres" style="margin-top:10px">
-          <thead><tr><th>Candidato</th><th>Votos</th><th>%</th></tr></thead>
-          <tbody></tbody>
-        </table>
+        <div class="card-scrollable-content">
+          <canvas id="chartPres"></canvas>
+          <table id="tablePres" style="margin-top:10px">
+            <thead><tr><th>Candidato</th><th>Votos</th><th>%</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
       </div>
 
       <!-- Diputados (resumen) -->
       <div class="card">
         <h3>Diputados</h3>
         <div class="card-summary" id="summaryDip"></div>
-        <canvas id="chartDip" height="140"></canvas>
-        <table id="tableDip" style="margin-top:10px">
-          <thead><tr><th>Candidato</th><th>Votos</th><th>%</th></tr></thead>
-          <tbody></tbody>
-        </table>
+        <div class="card-scrollable-content">
+          <canvas id="chartDip"></canvas>
+          <table id="tableDip" style="margin-top:10px">
+            <thead><tr><th>Candidato</th><th>Votos</th><th>%</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
       </div>
 
       <!-- Alcaldes -->
       <div class="card" style="grid-column:1 / -1">
         <h3>Alcaldes</h3>
         <div class="card-summary" id="summaryAlc"></div>
-        <canvas id="chartAlc" height="90"></canvas>
-        <table id="tableAlc" style="margin-top:10px">
-          <thead><tr><th>Candidato</th><th>Votos</th><th>%</th></tr></thead>
-          <tbody></tbody>
-        </table>
+        <div class="card-scrollable-content">
+          <canvas id="chartAlc"></canvas>
+          <table id="tableAlc" style="margin-top:10px">
+            <thead><tr><th>Candidato</th><th>Votos</th><th>%</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
@@ -203,6 +214,12 @@ function renderBarChart(canvasId, labels, values, title, imageUrls){
         // o un color por defecto si la paleta se agota.
         return CHART_COLORS[i % CHART_COLORS.length] || DEFAULT_COLOR;
       }),
+      // Hacemos las barras del gráfico de alcaldes más delgadas para que coincidan con los otros
+      barPercentage: canvasId === 'chartAlc' ? 0.6 : 0.9,
+      // También podemos definir un grosor máximo en píxeles
+      maxBarThickness: 40,
+      // Juntamos más las barras en el gráfico de alcaldes para reducir la altura total
+      categoryPercentage: canvasId === 'chartAlc' ? 0.9 : 0.8,
     }]
   };
   const gridColor = 'rgba(0, 0, 0, 0.1)';
@@ -217,12 +234,17 @@ function renderBarChart(canvasId, labels, values, title, imageUrls){
       animation: {
         duration: 0
       },
+      // Desactiva completamente las interacciones de hover
+      hover: {
+        mode: null
+      },
       // Ajusta el padding izquierdo para dar espacio a las imágenes y etiquetas largas
       layout: {
         padding: { left: 40 }
       },
       plugins: {
         legend:{display:false},
+        tooltip: { enabled: false }, // <-- Desactiva el pop-up al pasar el mouse
         candidateImages: { imageUrls } // Pasamos las URLs al plugin
       },
       scales: {
@@ -231,14 +253,25 @@ function renderBarChart(canvasId, labels, values, title, imageUrls){
       }
     }
   };
-  if(canvasId==='chartPres' && chartPres){ chartPres.destroy(); chartPres=null; }
-  if(canvasId==='chartDip' && chartDip){ chartDip.destroy(); chartDip=null; }
-  if(canvasId==='chartAlc' && chartAlc){ chartAlc.destroy(); chartAlc=null; }
-  const chart = new Chart(ctx, cfg);
-  if(canvasId==='chartPres') chartPres=chart;
-  if(canvasId==='chartDip') chartDip=chart;
-  if(canvasId==='chartAlc') chartAlc=chart;
-  return chart;
+
+  // Busca si el gráfico ya existe para actualizarlo, en lugar de destruirlo
+  let chartInstance = null;
+  if (canvasId === 'chartPres') chartInstance = chartPres;
+  if (canvasId === 'chartDip') chartInstance = chartDip;
+  if (canvasId === 'chartAlc') chartInstance = chartAlc;
+
+  if (chartInstance) {
+    // Si el gráfico ya existe, solo actualizamos sus datos y configuración
+    chartInstance.data = data;
+    chartInstance.options = cfg.options;
+    chartInstance.update();
+  } else {
+    // Si es la primera vez, creamos el gráfico nuevo
+    const newChart = new Chart(ctx, cfg);
+    if (canvasId === 'chartPres') chartPres = newChart;
+    if (canvasId === 'chartDip') chartDip = newChart;
+    if (canvasId === 'chartAlc') chartAlc = newChart;
+  }
 }
 
 /* Table render for presidenciales */
