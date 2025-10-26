@@ -153,7 +153,16 @@ async function fetchTotals(csvUrl) {
 let chartPres=null, chartDip=null, chartAlc=null;
 
 // Paleta de colores para los candidatos
-const CHART_COLORS = ['#36a2eb', '#ff6384', '#4bc0c0', '#ff9f40', '#9966ff', '#ffcd56', '#c9cbcf'];
+const CHART_COLORS = ['#36a2eb', '#4bc0c0', '#9966ff', '#ffcd56', '#c9cbcf']; // Colores de fallback
+
+// Colores específicos por partido
+const PARTY_COLORS = {
+  '(PNH)': '#00529F',   // Azul Marino para el Partido Nacional
+  '(PLH)': '#E41E26',   // Rojo para el Partido Liberal
+  '(LIBRE)': '#F05A28', // Naranja para el Partido Libre
+};
+
+const DEFAULT_COLOR = '#6c757d'; // Un color gris para candidatos sin partido definido
 
 const candidateImagesPlugin = {
   id: 'candidateImages',
@@ -213,7 +222,17 @@ function renderBarChart(canvasId, labels, values, title, imageUrls){
     datasets: [{
       label: title,
       data: values,
-      backgroundColor: labels.map((_, i) => CHART_COLORS[i % CHART_COLORS.length]),
+      backgroundColor: labels.map((label, i) => {
+        // Busca si el nombre del candidato contiene una sigla de partido
+        for (const party in PARTY_COLORS) {
+          if (label.includes(party)) {
+            return PARTY_COLORS[party];
+          }
+        }
+        // Si no se encuentra un partido, usa un color de la paleta de fallback
+        // o un color por defecto si la paleta se agota.
+        return CHART_COLORS[i % CHART_COLORS.length] || DEFAULT_COLOR;
+      }),
     }]
   };
   const isDark = document.body.classList.contains('dark-theme');
