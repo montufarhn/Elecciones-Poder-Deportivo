@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Freedom Radio / Sula TV - Conteo en Vivo (30 Nov 2025)</title>
+  <style>
+    :root {
+      --bg-color: #f4f7f6;
+      --text-color: #212529;
+      --text-muted-color: #6c757d;
+      --brand-color: #1a237e;
+      --card-bg: #ffffff;
+      --card-shadow: rgba(0,0,0,0.1);
+      --border-color: #dee2e6;
+    }
+    body.dark-theme {
+      --bg-color: #0b1220;
+      --text-color: #fff;
+      --text-muted-color: rgba(255,255,255,0.7);
+      --brand-color: #9fa8da;
+      --card-bg: rgba(255,255,255,0.03);
+      --card-shadow: rgba(0,0,0,0.4);
+      --border-color: rgba(255,255,255,0.06);
+    }
+    body{font-family:system-ui,Segoe UI,Roboto,Arial;margin:0;background:var(--bg-color);color:var(--text-color);transition: background-color 0.3s, color 0.3s;}
+    .container{padding:18px;max-width:1200px;margin:0 auto;}
+    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+    header .brand{font-size:1.2rem;font-weight:700; color: var(--brand-color);}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+    .card{background:var(--card-bg);padding:12px;border-radius:8px;box-shadow:0 6px 18px var(--card-shadow); transition: background-color 0.3s;}
+    table{width:100%;border-collapse:collapse;}
+    th,td{padding:8px;text-align:left;border-bottom:1px solid var(--border-color);}
+    .small{font-size:0.85rem;color:var(--text-muted-color);}
+    .big-number{font-size:2rem;font-weight:700;}
+    #lastUpdated{font-size:0.9rem;color:var(--text-muted-color);}
+    #theme-toggle {
+      padding: 6px 12px;
+      border: 1px solid var(--border-color);
+      background-color: var(--card-bg);
+      color: var(--text-color);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    @media (max-width:900px){.grid{grid-template-columns:1fr}}
+  </style>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand">Freedom Radio 96.1 — Sula TV | Conteo Local (Elecciones 30 Nov 2025)</div>
+      <button id="theme-toggle">Cambiar Tema</button>
+      <div id="lastUpdated" class="small">Última actualización: --</div>
+    </header>
+
+    <div class="grid">
+      <!-- Presidenciales -->
+      <div class="card">
+        <h3>Presidenciales</h3>
+        <canvas id="chartPres" height="140"></canvas>
+        <table id="tablePres" style="margin-top:10px">
+          <thead><tr><th>Candidato</th><th>Votos</th><th>%</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <!-- Diputados (resumen) -->
+      <div class="card">
+        <h3>Diputados</h3>
+        <canvas id="chartDip" height="140"></canvas>
+        <table id="tableDip" style="margin-top:10px">
+          <thead><tr><th>Candidato</th><th>Votos</th><th>%</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <!-- Alcaldes -->
+      <div class="card" style="grid-column:1 / -1">
+        <h3>Alcaldes</h3>
+        <canvas id="chartAlc" height="90"></canvas>
+        <table id="tableAlc" style="margin-top:10px">
+          <thead><tr><th>Candidato</th><th>Votos</th><th>%</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* --- LÓGICA DEL TEMA OSCURO/CLARO --- */
+const themeToggle = document.getElementById('theme-toggle');
+const body = document.body;
+
+// Función para aplicar el tema
+function applyTheme(theme) {
+  if (theme === 'dark') {
+    body.classList.add('dark-theme');
+    themeToggle.textContent = 'Tema Claro';
+  } else {
+    body.classList.remove('dark-theme');
+    themeToggle.textContent = 'Tema Oscuro';
+  }
+  localStorage.setItem('theme', theme);
+}
+
+themeToggle.addEventListener('click', () => {
+  const newTheme = body.classList.contains('dark-theme') ? 'light' : 'dark';
+  applyTheme(newTheme);
+});
+
+/* CONFIG: pega aquí las URLs CSV que publiques desde Google Sheets */
+const CSV_URL_PRES = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRdhg32Se4lG6yVeXZmK03WiMrLmJToLo2MtLoRJOVHBj9oV6_vA5Z06gOazwO0GvuddXnmo6vZyHFU/pub?gid=0&single=true&output=csv";
+const CSV_URL_DIP  = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRdhg32Se4lG6yVeXZmK03WiMrLmJToLo2MtLoRJOVHBj9oV6_vA5Z06gOazwO0GvuddXnmo6vZyHFU/pub?gid=994753743&single=true&output=csv";
+const CSV_URL_ALC  = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRdhg32Se4lG6yVeXZmK03WiMrLmJToLo2MtLoRJOVHBj9oV6_vA5Z06gOazwO0GvuddXnmo6vZyHFU/pub?gid=353257859&single=true&output=csv";
+
+/* Utility: simple CSV parser (works con CSV básico, sin comillas complejas) */
+function parseCSV(text) {
+  const lines = text.trim().split(/\r?\n/); // Más robusto para saltos de línea
+  return lines.map(l => l.split(',').map(c => c.trim()));
+}
+
+/* Fetch and map CSV to {labels:[], values:[]} assuming first row = headers (candidate names),
+   following rows = voters/actas (numeric values) per column */
+async function fetchTotals(csvUrl) {
+  // Usamos un proxy para evitar problemas de CORS
+  const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(csvUrl)}`;
+  const res = await fetch(proxyUrl);
+  if(!res.ok) throw new Error('CSV fetch failed: '+res.status);
+  const txt = await res.text();
+  const rows = parseCSV(txt);
+  if(rows.length === 0) return {labels:[], totals:[]};
+
+  // headers:
+  const labels = rows[0].map(h => h || 'SIN NOMBRE');
+  // sum columns:
+  const totals = new Array(labels.length).fill(0);
+  for(let r=1; r<rows.length; r++){
+    for(let c=0;c<labels.length;c++){
+      const v = parseInt(rows[r][c] || '0',10);
+      totals[c] += isNaN(v)?0:v;
+    }
+  }
+  return {labels, totals};
+}
+
+/* Chart helpers */
+let chartPres=null, chartDip=null, chartAlc=null;
+function renderBarChart(canvasId, labels, values, title){
+  const ctx = document.getElementById(canvasId);
+  if(!ctx) return;
+  const data = { labels, datasets:[{ label: title, data: values }] };
+  const isDark = document.body.classList.contains('dark-theme');
+  const gridColor = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+  const labelColor = isDark ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)';
+
+  const cfg = {
+    type:'bar',
+    data,
+    options:{
+      animation:false,
+      plugins:{legend:{display:false}},
+      scales: {
+        y: { ticks: { color: labelColor }, grid: { color: gridColor } },
+        x: { ticks: { color: labelColor }, grid: { color: gridColor } }
+      }
+    }
+  };
+  if(canvasId==='chartPres' && chartPres){ chartPres.destroy(); chartPres=null; }
+  if(canvasId==='chartDip' && chartDip){ chartDip.destroy(); chartDip=null; }
+  if(canvasId==='chartAlc' && chartAlc){ chartAlc.destroy(); chartAlc=null; }
+  const chart = new Chart(ctx, cfg);
+  if(canvasId==='chartPres') chartPres=chart;
+  if(canvasId==='chartDip') chartDip=chart;
+  if(canvasId==='chartAlc') chartAlc=chart;
+  return chart;
+}
+
+/* Table render for presidenciales */
+function renderTable(tableId, labels, values){
+  const tbody = document.querySelector(`#${tableId} tbody`);
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  const total = values.reduce((a,b)=>a+b,0)||1;
+  for(let i=0;i<labels.length;i++){
+    const tr = document.createElement('tr');
+    const p = Math.round((values[i]/total)*1000)/10;
+    tr.innerHTML = `<td>${labels[i]}</td><td>${values[i].toLocaleString('es-HN')}</td><td>${p}%</td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+/* Main refresh flow */
+async function refreshAll(){
+  try{
+    const t0 = Date.now();
+    const [pres, dip, alc] = await Promise.all([
+      fetchTotals(CSV_URL_PRES),
+      fetchTotals(CSV_URL_DIP),
+      fetchTotals(CSV_URL_ALC),
+    ]);
+
+    // Presidenciales
+    renderBarChart('chartPres', pres.labels, pres.totals, 'Votos Presidenciales');
+    renderTable('tablePres', pres.labels, pres.totals);
+
+    // Diputados
+    const { labels: dipLabels, totals: dipVals } = dip;
+    renderBarChart('chartDip', dipLabels, dipVals, 'Votos Diputados');
+    renderTable('tableDip', dipLabels, dipVals);
+
+    // Alcaldes
+    const { labels: alcLabels, totals: alcVals } = alc;
+    renderBarChart('chartAlc', alcLabels, alcVals, 'Votos Alcaldes');
+    renderTable('tableAlc', alcLabels, alcVals);
+
+    // last updated
+    document.getElementById('lastUpdated').textContent = 'Última actualización: ' + new Date().toLocaleString('es-HN');
+    console.log('Refreshed in', Date.now()-t0,'ms');
+  }catch(err){
+    console.error('Refresh error',err);
+    document.getElementById('lastUpdated').textContent = 'Error actualizando: '+err.message;
+  }
+}
+
+/* Auto-refresh */
+// Al cargar la página, aplica el tema guardado o el preferido por el sistema
+const savedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+applyTheme(savedTheme);
+
+// Inicia la carga de datos
+refreshAll(); // Carga inicial
+setInterval(refreshAll, 120000); // Actualiza cada 2 minutos (ajustable)
+</script>
+</body>
+</html>
