@@ -114,19 +114,41 @@ async function fetchTotals(csvUrl) {
   // Necesitamos al menos 2 filas: cabeceras e imágenes
   if (rows.length < 2) return { labels: [], totals: [], imageUrls: [] };
 
-  // Fila 1: Nombres de candidatos
-  const labels = rows[0].map(h => h || 'SIN NOMBRE');
-  // Fila 2: URLs de las imágenes
-  const imageUrls = rows[1];
+  // Fila 1: Nombres de candidatos. Ahora hay 2 columnas por candidato (Urna, Votos).
+  // Nos quedamos solo con las etiquetas de los candidatos, que aparecen cada 2 columnas.
+  const labels = rows[0].filter((_, i) => i % 2 === 0).map(h => h.replace(/\s*\((Urna|Votos)\)/g, '').trim() || 'SIN NOMBRE');
 
-  // Sumar columnas de votos (a partir de la fila 3)
+  // Fila 2: URLs de las imágenes
+  const imageUrls = rows[1].filter((_, i) => i % 2 === 0);
+
   const totals = new Array(labels.length).fill(0);
+  const candidateVoteMaps = labels.map(() => new Map());
+
+  // Procesar votos a partir de la fila 3
   for (let r = 2; r < rows.length; r++) {
-    for (let c = 0; c < labels.length; c++) {
-      const v = parseInt(rows[r][c] || '0',10);
-      totals[c] += isNaN(v) ? 0 : v;
+    for (let i = 0; i < labels.length; i++) {
+      const urnaCol = i * 2;
+      const votosCol = urnaCol + 1;
+
+      const urna = rows[r][urnaCol];
+      const votosStr = rows[r][votosCol];
+
+      // Si no hay número de urna o de votos, saltamos esta entrada
+      if (!urna || !votosStr) continue;
+
+      const votos = parseInt(votosStr, 10);
+      if (!isNaN(votos)) {
+        // Guardamos el voto para esa urna. Si ya existía, se reemplaza.
+        candidateVoteMaps[i].set(urna, votos);
+      }
     }
   }
+
+  // Sumar los valores únicos de cada mapa para obtener el total final
+  candidateVoteMaps.forEach((voteMap, i) => {
+    totals[i] = Array.from(voteMap.values()).reduce((sum, v) => sum + v, 0);
+  });
+
   return { labels, totals, imageUrls };
 }
 
