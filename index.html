@@ -114,40 +114,48 @@ async function fetchTotals(csvUrl) {
   // Necesitamos al menos 2 filas: cabeceras e imágenes
   if (rows.length < 2) return { labels: [], totals: [], imageUrls: [] };
 
-  // Fila 1: Nombres de candidatos. Ahora hay 2 columnas por candidato (Urna, Votos).
-  // Nos quedamos solo con las etiquetas de los candidatos, que aparecen cada 2 columnas.
-  const labels = rows[0].filter((_, i) => i % 2 === 0).map(h => h.replace(/\s*\((Urna|Votos)\)/g, '').trim() || 'SIN NOMBRE');
+  const headers = rows[0];
+  const candidateHeaders = {};
 
-  // Fila 2: URLs de las imágenes
-  const imageUrls = rows[1].filter((_, i) => i % 2 === 0);
+  // 1. Identificar las columnas para cada candidato (Urna y Votos)
+  headers.forEach((header, index) => {
+    const candidateName = header.replace(/\s*\((Urna|Votos)\)/g, '').trim();
+    if (!candidateHeaders[candidateName]) {
+      candidateHeaders[candidateName] = {};
+    }
+    if (header.includes('(Urna)')) {
+      candidateHeaders[candidateName].urnaCol = index;
+    }
+    if (header.includes('(Votos)')) {
+      candidateHeaders[candidateName].votosCol = index;
+    }
+  });
 
+  const labels = Object.keys(candidateHeaders);
   const totals = new Array(labels.length).fill(0);
   const candidateVoteMaps = labels.map(() => new Map());
 
-  // Procesar votos a partir de la fila 3
+  // Fila 2: URLs de las imágenes
+  const imageUrls = labels.map(name => rows[1][candidateHeaders[name].urnaCol] || rows[1][candidateHeaders[name].votosCol]);
+
+  // 2. Procesar votos a partir de la fila 3 usando los índices de columna correctos
   for (let r = 2; r < rows.length; r++) {
-    for (let i = 0; i < labels.length; i++) {
-      const urnaCol = i * 2;
-      const votosCol = urnaCol + 1;
+    labels.forEach((name, i) => {
+      const { urnaCol, votosCol } = candidateHeaders[name];
+      // Asegurarse de que ambas columnas fueron identificadas
+      if (urnaCol === undefined || votosCol === undefined) return;
 
       const urna = rows[r][urnaCol];
       const votosStr = rows[r][votosCol];
 
-      // Si no hay número de urna o de votos, saltamos esta entrada
-      if (!urna || !votosStr) continue;
-
+      if (!urna || !votosStr) return;
       const votos = parseInt(votosStr, 10);
-      if (!isNaN(votos)) {
-        // Guardamos el voto para esa urna. Si ya existía, se reemplaza.
-        candidateVoteMaps[i].set(urna, votos);
-      }
-    }
+      if (!isNaN(votos)) candidateVoteMaps[i].set(urna, votos);
+    });
   }
 
-  // Sumar los valores únicos de cada mapa para obtener el total final
-  candidateVoteMaps.forEach((voteMap, i) => {
-    totals[i] = Array.from(voteMap.values()).reduce((sum, v) => sum + v, 0);
-  });
+  // 3. Sumar los valores únicos de cada mapa para obtener el total final
+  candidateVoteMaps.forEach((voteMap, i) => { totals[i] = Array.from(voteMap.values()).reduce((sum, v) => sum + v, 0); });
 
   return { labels, totals, imageUrls };
 }
