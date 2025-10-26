@@ -111,10 +111,12 @@ themeToggle.addEventListener('click', () => {
   applyTheme(newTheme);
 });
 
-/* CONFIG: pega aquí las URLs CSV que publiques desde Google Sheets */
-const CSV_URL_PRES = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRdhg32Se4lG6yVeXZmK03WiMrLmJToLo2MtLoRJOVHBj9oV6_vA5Z06gOazwO0GvuddXnmo6vZyHFU/pub?gid=0&single=true&output=csv";
-const CSV_URL_DIP  = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRdhg32Se4lG6yVeXZmK03WiMrLmJToLo2MtLoRJOVHBj9oV6_vA5Z06gOazwO0GvuddXnmo6vZyHFU/pub?gid=994753743&single=true&output=csv";
-const CSV_URL_ALC  = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRdhg32Se4lG6yVeXZmK03WiMrLmJToLo2MtLoRJOVHBj9oV6_vA5Z06gOazwO0GvuddXnmo6vZyHFU/pub?gid=353257859&single=true&output=csv";
+/* CONFIG: Pega aquí la URL de tu aplicación web de Google Apps Script */
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxJq8VFpY9yi9G5tWyPnQmue4Ww_6Yn_wS6ess2K0Qj3y78TnhaeF4sIkhnevw0L1AR/exec"; // <-- ¡REEMPLAZA ESTO!
+
+const CSV_URL_PRES = `${SCRIPT_URL}?gid=0`;       // GID de la hoja de Presidenciales
+const CSV_URL_DIP  = `${SCRIPT_URL}?gid=994753743`; // GID de la hoja de Diputados
+const CSV_URL_ALC  = `${SCRIPT_URL}?gid=353257859`; // GID de la hoja de Alcaldes
 
 /* Utility: simple CSV parser (works con CSV básico, sin comillas complejas) */
 function parseCSV(text) {
@@ -122,12 +124,9 @@ function parseCSV(text) {
   return lines.map(l => l.split(',').map(c => c.trim()));
 }
 
-/* Fetch and map CSV to {labels:[], values:[]} assuming first row = headers (candidate names),
-   following rows = voters/actas (numeric values) per column */
+/* Fetch and map CSV to {labels:[], totals:[]} */
 async function fetchTotals(csvUrl) {
-  // Usamos un proxy para evitar problemas de CORS
-  const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(csvUrl)}`;
-  const res = await fetch(proxyUrl);
+  const res = await fetch(csvUrl);
   if(!res.ok) throw new Error('CSV fetch failed: '+res.status);
   const txt = await res.text();
   const rows = parseCSV(txt);
