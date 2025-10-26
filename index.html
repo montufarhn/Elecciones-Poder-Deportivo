@@ -183,12 +183,20 @@ const candidateImagesPlugin = {
       }
 
       if (img.complete) {
+        // Para barras horizontales, la imagen va a la izquierda, cerca de la etiqueta.
+        // 'bar.y' es el centro vertical de la barra.
+        // 'chart.chartArea.left' es donde empieza el área del gráfico.
+        // Colocamos la imagen a la izquierda de esa área.
+        const x = chart.chartArea.left - imageSize - 5;
+        const y = bar.y - (imageSize / 2);
+
         ctx.save();
         ctx.beginPath();
-        ctx.arc(bar.x, bar.y - (imageSize / 2) - 5, imageSize / 2, 0, Math.PI * 2);
+        // Dibuja un círculo para recortar la imagen
+        ctx.arc(x + imageSize / 2, y + imageSize / 2, imageSize / 2, 0, Math.PI * 2);
         ctx.closePath();
         ctx.clip();
-        ctx.drawImage(img, bar.x - imageSize / 2, bar.y - imageSize - 5, imageSize, imageSize);
+        ctx.drawImage(img, x, y, imageSize, imageSize);
         ctx.restore();
       }
     }
@@ -218,7 +226,11 @@ function renderBarChart(canvasId, labels, values, title, imageUrls){
     options:{
       indexAxis: 'y', // Barras horizontales para mejor legibilidad
       animation:false,
-      plugins:{
+      // Ajusta el padding izquierdo para dar espacio a las imágenes y etiquetas largas
+      layout: {
+        padding: { left: 40 }
+      },
+      plugins: {
         legend:{display:false},
         candidateImages: { imageUrls } // Pasamos las URLs al plugin
       },
