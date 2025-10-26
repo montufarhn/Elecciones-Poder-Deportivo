@@ -127,30 +127,87 @@ function parseCSV(text) {
 /* Fetch and map CSV to {labels:[], totals:[]} */
 async function fetchTotals(csvUrl) {
   const res = await fetch(csvUrl);
-  if(!res.ok) throw new Error('CSV fetch failed: '+res.status);
+  if (!res.ok) throw new Error('CSV fetch failed: ' + res.status);
   const txt = await res.text();
   const rows = parseCSV(txt);
-  if(rows.length === 0) return {labels:[], totals:[]};
+  // Necesitamos al menos 2 filas: cabeceras e imágenes
+  if (rows.length < 2) return { labels: [], totals: [], imageUrls: [] };
 
-  // headers:
+  // Fila 1: Nombres de candidatos
   const labels = rows[0].map(h => h || 'SIN NOMBRE');
-  // sum columns:
+  // Fila 2: URLs de las imágenes
+  const imageUrls = rows[1];
+
+  // Sumar columnas de votos (a partir de la fila 3)
   const totals = new Array(labels.length).fill(0);
-  for(let r=1; r<rows.length; r++){
-    for(let c=0;c<labels.length;c++){
+  for (let r = 2; r < rows.length; r++) {
+    for (let c = 0; c < labels.length; c++) {
       const v = parseInt(rows[r][c] || '0',10);
-      totals[c] += isNaN(v)?0:v;
+      totals[c] += isNaN(v) ? 0 : v;
     }
   }
-  return {labels, totals};
+  return { labels, totals, imageUrls };
 }
 
 /* Chart helpers */
 let chartPres=null, chartDip=null, chartAlc=null;
-function renderBarChart(canvasId, labels, values, title){
+
+// Paleta de colores para los candidatos
+const CHART_COLORS = ['#36a2eb', '#ff6384', '#4bc0c0', '#ff9f40', '#9966ff', '#ffcd56', '#c9cbcf'];
+
+const candidateImagesPlugin = {
+  id: 'candidateImages',
+  async afterDraw(chart, args, options) {
+    const { ctx } = chart;
+    const { imageUrls } = options;
+    if (!imageUrls || imageUrls.length === 0) return;
+
+    const imageSize = 30; // Tamaño de la imagen en píxeles
+    const meta = chart.getDatasetMeta(0);
+
+    for (let i = 0; i < meta.data.length; i++) {
+      const bar = meta.data[i];
+      const imageUrl = imageUrls[i];
+      if (!imageUrl || imageUrl.trim() === '') continue;
+
+      // Usamos un caché simple para no recargar imágenes
+      if (!chart.customImages) chart.customImages = {};
+      let img = chart.customImages[imageUrl];
+
+      if (!img) {
+        img = new Image();
+        img.src = imageUrl;
+        chart.customImages[imageUrl] = img;
+        // Si la imagen no ha cargado, la dibujamos en el siguiente ciclo de animación
+        img.onload = () => chart.draw();
+      }
+
+      if (img.complete) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(bar.x, bar.y - (imageSize / 2) - 5, imageSize / 2, 0, Math.PI * 2);
+        ctx.closePath();
+        ctx.clip();
+        ctx.drawImage(img, bar.x - imageSize / 2, bar.y - imageSize - 5, imageSize, imageSize);
+        ctx.restore();
+      }
+    }
+  }
+};
+
+Chart.register(candidateImagesPlugin);
+
+function renderBarChart(canvasId, labels, values, title, imageUrls){
   const ctx = document.getElementById(canvasId);
   if(!ctx) return;
-  const data = { labels, datasets:[{ label: title, data: values }] };
+  const data = {
+    labels,
+    datasets: [{
+      label: title,
+      data: values,
+      backgroundColor: labels.map((_, i) => CHART_COLORS[i % CHART_COLORS.length]),
+    }]
+  };
   const isDark = document.body.classList.contains('dark-theme');
   const gridColor = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
   const labelColor = isDark ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)';
@@ -159,8 +216,12 @@ function renderBarChart(canvasId, labels, values, title){
     type:'bar',
     data,
     options:{
+      indexAxis: 'y', // Barras horizontales para mejor legibilidad
       animation:false,
-      plugins:{legend:{display:false}},
+      plugins:{
+        legend:{display:false},
+        candidateImages: { imageUrls } // Pasamos las URLs al plugin
+      },
       scales: {
         y: { ticks: { color: labelColor }, grid: { color: gridColor } },
         x: { ticks: { color: labelColor }, grid: { color: gridColor } }
@@ -196,7 +257,8 @@ function sortData(data) {
   // 1. Combina etiquetas y totales en un solo array de objetos
   const combined = data.labels.map((label, index) => ({
     label: label,
-    total: data.totals[index]
+    total: data.totals[index],
+    imageUrl: data.imageUrls[index] // Mantenemos la URL asociada
   }));
 
   // 2. Ordena el array combinado de mayor a menor voto
@@ -205,12 +267,16 @@ function sortData(data) {
   // 3. Separa nuevamente en dos arrays, ya ordenados
   const sortedLabels = combined.map(item => item.label);
   const sortedTotals = combined.map(item => item.total);
+  const sortedImageUrls = combined.map(item => item.imageUrl);
 
-  return { labels: sortedLabels, totals: sortedTotals };
+  return { labels: sortedLabels, totals: sortedTotals, imageUrls: sortedImageUrls };
 }
 
 /* Main refresh flow */
 async function refreshAll(){
+  const statusEl = document.getElementById('lastUpdated');
+  statusEl.textContent = 'Actualizando datos...';
+
   try{
     const t0 = Date.now();
     let [pres, dip, alc] = await Promise.all([ // Usamos 'let' para poder reasignar
@@ -225,19 +291,19 @@ async function refreshAll(){
     alc = sortData(alc);
 
     // Renderizamos todo con los datos ya ordenados
-    renderBarChart('chartPres', pres.labels, pres.totals, 'Votos Presidenciales');
+    renderBarChart('chartPres', pres.labels, pres.totals, 'Votos Presidenciales', pres.imageUrls);
     renderTable('tablePres', pres.labels, pres.totals);
-    renderBarChart('chartDip', dip.labels, dip.totals, 'Votos Diputados');
+    renderBarChart('chartDip', dip.labels, dip.totals, 'Votos Diputados', dip.imageUrls);
     renderTable('tableDip', dip.labels, dip.totals);
-    renderBarChart('chartAlc', alc.labels, alc.totals, 'Votos Alcaldes');
+    renderBarChart('chartAlc', alc.labels, alc.totals, 'Votos Alcaldes', alc.imageUrls);
     renderTable('tableAlc', alc.labels, alc.totals);
 
     // last updated
-    document.getElementById('lastUpdated').textContent = 'Última actualización: ' + new Date().toLocaleString('es-HN');
+    statusEl.textContent = 'Última actualización: ' + new Date().toLocaleString('es-HN');
     console.log('Refreshed in', Date.now()-t0,'ms');
   }catch(err){
     console.error('Refresh error',err);
-    document.getElementById('lastUpdated').textContent = 'Error actualizando: '+err.message;
+    statusEl.textContent = 'Error actualizando: '+err.message;
   }
 }
 
