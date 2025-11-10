@@ -4,85 +4,72 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>TREP-PD - Transmisión de Resultados Electorales Preliminares Poder Deportivo</title>
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
   <style>
     :root {
       --bg-color: #f4f7f6;
-      --text-color: #212529;
-      --text-muted-color: #6c757d;
       --brand-color: #1a237e;
-      --card-bg: #ffffff;
-      --card-shadow: rgba(0,0,0,0.1);
-      --border-color: #dee2e6;
     }
-    body{font-family:system-ui,Segoe UI,Roboto,Arial;margin:0;background:var(--bg-color);color:var(--text-color);transition: background-color 0.3s, color 0.3s;}
-    .container{padding:18px;max-width:1200px;margin:0 auto;}
-    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
-    header .brand{font-size:1.2rem;font-weight:700; color: var(--brand-color);}
-    .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
-    .card{background:var(--card-bg);padding:12px;border-radius:8px;box-shadow:0 6px 18px var(--card-shadow); transition: background-color 0.3s;}
-    table{width:100%;border-collapse:collapse;}
-    th,td{padding:8px;text-align:left;border-bottom:1px solid var(--border-color);}
-    .small{font-size:0.85rem;color:var(--text-muted-color);}
-    .big-number{font-size:2rem;font-weight:700;}
-    .card-summary {
-      margin-bottom: 12px;
-      padding-bottom: 8px;
-      border-bottom: 1px solid var(--border-color);
-    }
+    body { background-color: var(--bg-color); }
+    .brand { font-size: 1.2rem; font-weight: 700; color: var(--brand-color); }
     .card-scrollable-content {
-      max-height: 450px; /* Altura máxima para el contenido */
+      max-height: 650px; /* Altura máxima para el contenido */
       overflow-y: auto;  /* Añade una barra de scroll si el contenido es más alto */
       padding-right: 5px; /* Espacio para la barra de scroll */
     }
-    @media (max-width:900px){.grid{grid-template-columns:1fr}}
   </style>
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <div class="brand">TREP-PD | Transmisión de Resultados Electorales Preliminares de Poder Deportivo</div>
-      <div id="lastUpdated" class="small">Última actualización: --</div>
+  <div class="container mt-4">
+    <header class="d-flex justify-content-between align-items-center mb-3">
+      <div class="brand">TREP-PD | Transmisión de Resultados Electorales Preliminares Poder Deportivo</div>
+      <div id="lastUpdated" class="text-muted small">Última actualización: --</div>
     </header>
 
-    <div class="grid">
-      <!-- Presidenciales -->
-      <div class="card">
-        <h3>Presidenciales</h3>
-        <div class="card-summary" id="summaryPres"></div>
-        <div class="card-scrollable-content">
-          <canvas id="chartPres"></canvas>
-          <table id="tablePres" style="margin-top:10px">
-            <thead><tr><th>Candidato</th><th>Votos</th><th>%</th></tr></thead>
-            <tbody></tbody>
-          </table>
-        </div>
-      </div>
+    <div id="important-notice" class="alert alert-warning" role="alert" style="transition: opacity 0.5s ease-out;">
+      <strong>Aviso Importante:</strong> Los datos presentados son preliminares y provienen exclusivamente de nuestros corresponsales en cada uno de los centros de votación en <strong>El Progreso, Yoro</strong>.
+      Estos resultados no son definitivos y no declaran a ningún candidato como ganador.
+    </div>
 
-      <!-- Diputados (resumen) -->
-      <div class="card">
-        <h3>Diputados</h3>
-        <div class="card-summary" id="summaryDip"></div>
-        <div class="card-scrollable-content">
-          <canvas id="chartDip"></canvas>
-          <table id="tableDip" style="margin-top:10px">
-            <thead><tr><th>Candidato</th><th>Votos</th><th>%</th></tr></thead>
-            <tbody></tbody>
-          </table>
+    <div class="row g-4">
+      <!-- Presidenciales -->
+      <div class="col-lg-6">
+        <div class="card h-100">
+          <div class="card-header">
+            <h3 class="card-title mb-0">Presidenciales</h3>
+          </div>
+          <div class="card-body d-flex flex-column">
+            <div id="summaryPres" class="border-bottom pb-2 mb-3"></div>
+            <div class="card-scrollable-content">
+              <canvas id="chartPres"></canvas>
+              <table id="tablePres" class="table table-striped mt-3">
+                <thead><tr><th>Candidato</th><th>Votos</th><th>%</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
 
       <!-- Alcaldes -->
-      <div class="card" style="grid-column:1 / -1">
-        <h3>Alcaldes</h3>
-        <div class="card-summary" id="summaryAlc"></div>
-        <div class="card-scrollable-content">
-          <canvas id="chartAlc"></canvas>
-          <table id="tableAlc" style="margin-top:10px">
-            <thead><tr><th>Candidato</th><th>Votos</th><th>%</th></tr></thead>
-            <tbody></tbody>
-          </table>
+      <div class="col-lg-6">
+        <div class="card h-100">
+          <div class="card-header">
+            <h3 class="card-title mb-0">Alcaldes</h3>
+          </div>
+          <div class="card-body d-flex flex-column">
+            <div id="summaryAlc" class="border-bottom pb-2 mb-3"></div>
+            <div class="card-scrollable-content">
+              <canvas id="chartAlc"></canvas>
+              <table id="tableAlc" class="table table-striped mt-3">
+                <thead><tr><th>Candidato</th><th>Votos</th><th>%</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -93,7 +80,6 @@
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxJq8VFpY9yi9G5tWyPnQmue4Ww_6Yn_wS6ess2K0Qj3y78TnhaeF4sIkhnevw0L1AR/exec"; // <-- ¡REEMPLAZA ESTO!
 
 const CSV_URL_PRES = `${SCRIPT_URL}?gid=0`;       // GID de la hoja de Presidenciales
-const CSV_URL_DIP  = `${SCRIPT_URL}?gid=994753743`; // GID de la hoja de Diputados
 const CSV_URL_ALC  = `${SCRIPT_URL}?gid=353257859`; // GID de la hoja de Alcaldes
 
 /* CONFIG: Censo electoral local (sin contar el extranjero) */
@@ -161,7 +147,7 @@ async function fetchTotals(csvUrl) {
 }
 
 /* Chart helpers */
-let chartPres=null, chartDip=null, chartAlc=null;
+let chartPres=null, chartAlc=null;
 
 // Paleta de colores para los candidatos
 const CHART_COLORS = ['#36a2eb', '#4bc0c0', '#9966ff', '#ffcd56', '#c9cbcf']; // Colores de fallback
@@ -287,7 +273,6 @@ function renderBarChart(canvasId, labels, values, title, imageUrls){
   // Busca si el gráfico ya existe para actualizarlo, en lugar de destruirlo
   let chartInstance = null;
   if (canvasId === 'chartPres') chartInstance = chartPres;
-  if (canvasId === 'chartDip') chartInstance = chartDip;
   if (canvasId === 'chartAlc') chartInstance = chartAlc;
 
   if (chartInstance) {
@@ -299,7 +284,6 @@ function renderBarChart(canvasId, labels, values, title, imageUrls){
     // Si es la primera vez, creamos el gráfico nuevo
     const newChart = new Chart(ctx, cfg);
     if (canvasId === 'chartPres') chartPres = newChart;
-    if (canvasId === 'chartDip') chartDip = newChart;
     if (canvasId === 'chartAlc') chartAlc = newChart;
   }
 }
@@ -345,36 +329,29 @@ async function refreshAll(){
 
   try{
     const t0 = Date.now();
-    let [pres, dip, alc] = await Promise.all([ // Usamos 'let' para poder reasignar
+    let [pres, alc] = await Promise.all([ // Usamos 'let' para poder reasignar
       fetchTotals(CSV_URL_PRES),
-      fetchTotals(CSV_URL_DIP),
       fetchTotals(CSV_URL_ALC),
     ]);
 
     // Ordenamos los datos de cada elección
     pres = sortData(pres);
-    dip = sortData(dip);
     alc = sortData(alc);
 
     // --- Calcular y renderizar totales ---
     const totalPres = pres.totals.reduce((a, b) => a + b, 0);
-    const totalDip = dip.totals.reduce((a, b) => a + b, 0);
     const totalAlc = alc.totals.reduce((a, b) => a + b, 0);
 
     const participationPres = ((totalPres / CENSO_TOTAL) * 100).toFixed(2);
-    const participationDip = ((totalDip / CENSO_TOTAL) * 100).toFixed(2);
     const participationAlc = ((totalAlc / CENSO_TOTAL) * 100).toFixed(2);
 
     document.getElementById('summaryPres').innerHTML = `<strong>Total Votos:</strong> ${totalPres.toLocaleString('es-HN')} | <strong>Participación:</strong> ${participationPres}%`;
-    document.getElementById('summaryDip').innerHTML = `<strong>Total Votos:</strong> ${totalDip.toLocaleString('es-HN')} | <strong>Participación:</strong> ${participationDip}%`;
     document.getElementById('summaryAlc').innerHTML = `<strong>Total Votos:</strong> ${totalAlc.toLocaleString('es-HN')} | <strong>Participación:</strong> ${participationAlc}%`;
 
 
     // Renderizamos todo con los datos ya ordenados
     renderBarChart('chartPres', pres.labels, pres.totals, 'Votos Presidenciales', pres.imageUrls);
     renderTable('tablePres', pres.labels, pres.totals, totalPres);
-    renderBarChart('chartDip', dip.labels, dip.totals, 'Votos Diputados', dip.imageUrls);
-    renderTable('tableDip', dip.labels, dip.totals, totalDip);
     renderBarChart('chartAlc', alc.labels, alc.totals, 'Votos Alcaldes', alc.imageUrls);
     renderTable('tableAlc', alc.labels, alc.totals, totalAlc);
 
@@ -391,6 +368,18 @@ async function refreshAll(){
 // Inicia la carga de datos
 refreshAll(); // Carga inicial
 setInterval(refreshAll, 120000); // Actualiza cada 2 minutos (ajustable)
+</script>
+
+<script>
+  // Ocultar el banner de aviso después de 40 segundos
+  setTimeout(() => {
+    const notice = document.getElementById('important-notice');
+    if (notice) {
+      notice.style.opacity = '0';
+      // Espera a que termine la transición para ocultarlo completamente
+      setTimeout(() => { notice.style.display = 'none'; }, 500);
+    }
+  }, 40000); // 40000 milisegundos = 40 segundos
 </script>
 </body>
 </html>
