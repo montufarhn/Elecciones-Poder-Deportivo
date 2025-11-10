@@ -277,17 +277,14 @@ function renderBarChart(canvasId, labels, values, title, imageUrls){
   if (canvasId === 'chartPres') chartInstance = chartPres;
   if (canvasId === 'chartAlc') chartInstance = chartAlc;
 
+  // Para asegurar que todo se refresque (incluyendo plugins), destruimos el gráfico anterior.
   if (chartInstance) {
-    // Si el gráfico ya existe, solo actualizamos sus datos y configuración
-    chartInstance.data = data;
-    chartInstance.options = cfg.options;
-    chartInstance.update();
-  } else {
-    // Si es la primera vez, creamos el gráfico nuevo
-    const newChart = new Chart(ctx, cfg);
-    if (canvasId === 'chartPres') chartPres = newChart;
-    if (canvasId === 'chartAlc') chartAlc = newChart;
+    chartInstance.destroy();
   }
+
+  const newChart = new Chart(ctx, cfg);
+  if (canvasId === 'chartPres') chartPres = newChart;
+  if (canvasId === 'chartAlc') chartAlc = newChart;
 }
 
 /* Table render for presidenciales */
