@@ -232,12 +232,12 @@ function renderBarChart(canvasId, labels, values, title, imageUrls){
         // o un color por defecto si la paleta se agota.
         return CHART_COLORS[i % CHART_COLORS.length] || DEFAULT_COLOR;
       }),
-      // Hacemos las barras del gráfico de alcaldes más delgadas para que coincidan con los otros
-      barPercentage: canvasId === 'chartAlc' ? 0.6 : 0.9,
+      // Porcentaje del ancho de la categoría que ocupará la barra.
+      barPercentage: 0.9,
       // También podemos definir un grosor máximo en píxeles
       maxBarThickness: 40,
-      // Juntamos más las barras en el gráfico de alcaldes para reducir la altura total
-      categoryPercentage: canvasId === 'chartAlc' ? 0.9 : 0.8,
+      // Porcentaje del espacio entre ticks que se usará para la categoría. Controla el espacio entre barras.
+      categoryPercentage: 0.8,
     }]
   };
   const gridColor = 'rgba(0, 0, 0, 0.1)';
