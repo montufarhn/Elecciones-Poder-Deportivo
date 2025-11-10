@@ -103,13 +103,13 @@ async function fetchTotals(csvUrl) {
   const headers = rows[0];
   const candidateHeaders = {};
 
-  // 1. Identificar las columnas para cada candidato (Urna y Votos)
+  // 1. Identificar las columnas para cada candidato (JRV y Votos)
   headers.forEach((header, index) => {
-    const candidateName = header.replace(/\s*\((Urna|Votos)\)/g, '').trim();
+    const candidateName = header.replace(/\s*\((JRV|Votos)\)/g, '').trim();
     if (!candidateHeaders[candidateName]) {
       candidateHeaders[candidateName] = {};
     }
-    if (header.includes('(Urna)')) {
+    if (header.includes('(JRV)')) {
       candidateHeaders[candidateName].urnaCol = index;
     }
     if (header.includes('(Votos)')) {
@@ -128,15 +128,19 @@ async function fetchTotals(csvUrl) {
   for (let r = 2; r < rows.length; r++) {
     labels.forEach((name, i) => {
       const { urnaCol, votosCol } = candidateHeaders[name];
-      // Asegurarse de que ambas columnas fueron identificadas
-      if (urnaCol === undefined || votosCol === undefined) return;
 
       const urna = rows[r][urnaCol];
       const votosStr = rows[r][votosCol];
 
-      if (!urna || !votosStr) return;
+      if (!urna || !votosStr) return; // Usamos return para saltar a la siguiente iteración en un forEach
+      
       const votos = parseInt(votosStr, 10);
-      if (!isNaN(votos)) candidateVoteMaps[i].set(urna, votos);
+      if (!isNaN(votos)) {
+        if (candidateVoteMaps[i].has(urna)) {
+          console.warn(`ADVERTENCIA: JRV duplicada encontrada para "${name}". JRV: ${urna}. El valor anterior (${candidateVoteMaps[i].get(urna)}) será sobrescrito por el nuevo valor (${votos}).`);
+        }
+        candidateVoteMaps[i].set(urna, votos);
+      }
     });
   }
 
