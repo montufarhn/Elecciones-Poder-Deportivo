@@ -83,7 +83,10 @@ const CSV_URL_PRES = `${SCRIPT_URL}?gid=0`;       // GID de la hoja de Presidenc
 const CSV_URL_ALC  = `${SCRIPT_URL}?gid=353257859`; // GID de la hoja de Alcaldes
 
 /* CONFIG: Censo electoral local (sin contar el extranjero) */
-const CENSO_TOTAL = 6026477;
+const CENSO_TOTAL = 6026477; // Censo Nacional para Presidenciales
+
+/* CONFIG: Censo electoral para Alcaldes de El Progreso, Yoro */
+const CENSO_ALCALDES = 136803;
 
 /* Utility: simple CSV parser (works con CSV básico, sin comillas complejas) */
 function parseCSV(text) {
@@ -346,11 +349,17 @@ async function refreshAll(){
     const totalAlc = alc.totals.reduce((a, b) => a + b, 0);
 
     const participationPres = ((totalPres / CENSO_TOTAL) * 100).toFixed(2);
-    const participationAlc = ((totalAlc / CENSO_TOTAL) * 100).toFixed(2);
+    const abstencionNumPres = CENSO_TOTAL - totalPres;
+    const abstencionPorcPres = ((abstencionNumPres / CENSO_TOTAL) * 100).toFixed(2);
+    const participationAlc = ((totalAlc / CENSO_ALCALDES) * 100).toFixed(2);
+    const abstencionNumAlc = CENSO_ALCALDES - totalAlc;
+    const abstencionPorcAlc = ((abstencionNumAlc / CENSO_ALCALDES) * 100).toFixed(2);
 
-    document.getElementById('summaryPres').innerHTML = `<strong>Total Votos:</strong> ${totalPres.toLocaleString('es-HN')} | <strong>Participación:</strong> ${participationPres}%`;
-    document.getElementById('summaryAlc').innerHTML = `<strong>Total Votos:</strong> ${totalAlc.toLocaleString('es-HN')} | <strong>Participación:</strong> ${participationAlc}%`;
-
+    document.getElementById('summaryPres').innerHTML = `<strong>Total Votos:</strong> ${totalPres.toLocaleString('es-HN')} | <strong>Participación:</strong> ${participationPres}%<br>
+      <strong>Abstencionismo:</strong> ${abstencionNumPres.toLocaleString('es-HN')} (${abstencionPorcPres}%)`;
+    document.getElementById('summaryAlc').innerHTML = `<strong>Total Votos:</strong> ${totalAlc.toLocaleString('es-HN')} | <strong>Participación:</strong> ${participationAlc}%<br>
+      <strong>Abstencionismo:</strong> ${abstencionNumAlc.toLocaleString('es-HN')} (${abstencionPorcAlc}%)
+    `;
 
     // Renderizamos todo con los datos ya ordenados
     renderBarChart('chartPres', pres.labels, pres.totals, 'Votos Presidenciales', pres.imageUrls);
