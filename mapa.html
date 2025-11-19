@@ -1,234 +1,237 @@
-<!-- Interactive Honduras municipalities choropleth map
-     Files needed (place in same folder as this HTML):
-     - honduras_municipios.geojson  (municipal boundaries GeoJSON)
-     - data.csv                      (CSV exported from your Excel)
-
-     CSV expected columns (header row):
-     Municipality,Department,Electors2021,Electors2025,Difference,PercentChange
-
-     How to run locally: python -m http.server 8000  (open http://localhost:8000/interactive_honduras_map.html)
-
-     Notes: Matching is done by cleaned municipality name (case-insensitive, accents removed).
--->
-
 <!doctype html>
 <html lang="es">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mapa interactivo — Municipios de Honduras</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="" crossorigin=""/>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Mapa Interactivo — Municipios de Honduras</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
   <style>
     html,body,#map{height:100%;margin:0;padding:0}
-    #map{height:calc(100vh - 80px)}
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
-    .topbar{padding:8px 12px;background:#0b63a4;color:#fff;display:flex;align-items:center;gap:12px}
+    #map{height:calc(100vh - 70px)}
+    body{font-family:system-ui,Segoe UI,Roboto,Arial}
+    .topbar{padding:10px;background:#0b63a4;color:#fff;display:flex;align-items:center;gap:12px}
     .legend{background:#fff;padding:8px;border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,0.2)}
     .info{padding:6px}
   </style>
 </head>
+
 <body>
-  <div class="topbar">
-    <strong>Mapa interactivo — Municipios de Honduras</strong>
-    <div style="margin-left:auto;display:flex;gap:8px">
-      <label style="font-size:13px">Visualizar por:</label>
-      <select id="mode">
-        <option value="percent">% Cambio (2021 → 2025)</option>
-        <option value="difference">Diferencia absoluta</option>
-      </select>
-      <button id="resetView">Reset</button>
-    </div>
+
+<div class="topbar">
+  <strong>Mapa interactivo — Municipios de Honduras</strong>
+  <div style="margin-left:auto;display:flex;gap:10px;">
+    <label style="font-size:13px">Visualizar por:</label>
+    <select id="mode">
+      <option value="percent">% Cambio (2021 → 2025)</option>
+      <option value="difference">Diferencia absoluta</option>
+    </select>
+    <button id="resetView">Reset</button>
   </div>
+</div>
 
-  <div id="map"></div>
-  <div id="legend" style="position:absolute;right:12px;top:84px;z-index:1000"></div>
+<div id="map"></div>
+<div id="legend" style="position:absolute;right:12px;top:80px;z-index:1000"></div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
 
-  <script>
-    // --- Utility functions -------------------------------------------------
-    function normalizeName(s){
-      if(!s) return '';
-      return s.toString().trim().toLowerCase()
-        .normalize('NFD').replace(/\p{Diacritic}/gu, '')
-        .replace(/\s+/g,' ').replace(/[^a-z0-9 ]/g,'');
+<script>
+
+  /* ===========================================================
+     CONFIGURACIÓN: SOLO EDITA ESTAS DOS VARIABLES
+  ============================================================ */
+
+  const DRIVE_API_KEY = "AIzaSyBINitDw4aRrCBCp5gDtbISwUK6MnzJuas";  
+  const DRIVE_FILE_ID = "1cW00u-vWp-UyAl2zY4f-nFG_rtjtYcuO";       
+
+  /* ===========================================================
+     UTILIDADES
+  ============================================================ */
+
+  function normalizeName(s){
+    return s?.toString().trim().toLowerCase()
+      .normalize('NFD').replace(/\p{Diacritic}/gu,'')
+      .replace(/\s+/g,' ')
+      .replace(/[^a-z0-9 ]/g,'') || "";
+  }
+
+  const colorRamp = ['#f7fbff','#deebf7','#c6dbef','#9ecae1','#6baed6','#3182bd','#08519c'];
+
+  function getColorForValue(v, breaks){
+    for(let i=0;i<breaks.length;i++) if(v<=breaks[i]) return colorRamp[i];
+    return colorRamp[colorRamp.length-1];
+  }
+
+  /* ===========================================================
+     MAPA
+  ============================================================ */
+
+  const map = L.map('map',{minZoom:6}).setView([15.0,-86.5],7);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:18})
+    .addTo(map);
+
+  let geojsonLayer;
+  let dataRows = {};
+  let rawGeoJSON;
+  let currentBreaks = [];
+
+  /* ===========================================================
+     Carga de CSV (data.csv)
+  ============================================================ */
+
+  Papa.parse("data.csv", {
+    download:true,
+    header:true,
+    skipEmptyLines:true,
+    complete: res => {
+      res.data.forEach(row=>{
+        const key = normalizeName(row.Municipio || row.Municipality);
+        dataRows[key] = {
+          muni: row.Municipio || row.Municipality,
+          dept: row.Departamento || row.Department,
+          e21: Number(row.Electors2021 || 0),
+          e25: Number(row.Electors2025 || 0),
+          diff: Number(row.Difference || 0),
+          pct: Number(row.PercentChange || 0)
+        };
+      });
+
+      loadGeoJSONfromDrive();
+    }
+  });
+
+  /* ===========================================================
+     DESCARGA GEOJSON DESDE GOOGLE DRIVE (API OFICIAL)
+  ============================================================ */
+
+  function loadGeoJSONfromDrive(){
+    const url = `https://www.googleapis.com/drive/v3/files/${DRIVE_FILE_ID}?alt=media&key=${DRIVE_API_KEY}`;
+
+    fetch(url)
+      .then(res=>res.json())
+      .then(json=>{
+        rawGeoJSON = json;
+        preprocessGeoJSON();
+        drawLayer("percent");
+      })
+      .catch(err=>alert("Error cargando GeoJSON desde Drive:\n"+err));
+  }
+
+  function preprocessGeoJSON(){
+    rawGeoJSON.features.forEach(f=>{
+      const p = f.properties;
+      let name = p.MUNICIPIO || p.MUN_NOMBRE || p.NOMBRE || p.NAME;
+      f.properties._norm = normalizeName(name);
+      f.properties._show = name;
+    });
+  }
+
+  /* ===========================================================
+     Dibujar mapa
+  ============================================================ */
+
+  function computeBreaks(values, buckets){
+    const arr = values.slice().sort((a,b)=>a-b);
+    const results = [];
+    for(let i=1;i<buckets;i++){
+      results.push(arr[Math.floor(arr.length*(i/buckets))]);
+    }
+    return results;
+  }
+
+  function styleFeature(feature){
+    const mode = document.getElementById("mode").value;
+    const row = dataRows[feature.properties._norm];
+    const v = row ? (mode==="percent" ? row.pct : row.diff) : null;
+    return {
+      weight:1,
+      color:"#444",
+      fillColor: v===null ? "#ccc" : getColorForValue(v,currentBreaks),
+      fillOpacity: v===null ? .3 : .8
+    };
+  }
+
+  function onEachFeature(feature, layer){
+    const r = dataRows[feature.properties._norm];
+    let html = `<div class="info"><strong>${feature.properties._show}</strong><br>`;
+
+    if(r){
+      html += `
+        Depto: ${r.dept}<br>
+        Electores 2021: ${r.e21.toLocaleString()}<br>
+        Electores 2025: ${r.e25.toLocaleString()}<br>
+        Diferencia: ${r.diff.toLocaleString()}<br>
+        % Cambio: ${r.pct.toFixed(2)}%<br>
+      `;
+    } else {
+      html += `<em>Sin datos</em>`;
     }
 
-    function getColorForValue(v, breaks){
-      for(let i=0;i<breaks.length;i++) if(v<=breaks[i]) return colorRamp[i];
-      return colorRamp[colorRamp.length-1];
-    }
+    html += `</div>`;
+    layer.bindPopup(html);
 
-    // color ramp (low -> high)
-    const colorRamp = ['#f7fbff','#deebf7','#c6dbef','#9ecae1','#6baed6','#3182bd','#08519c'];
+    layer.on("mouseover", e => e.target.setStyle({weight:2}));
+    layer.on("mouseout", e => geojsonLayer.resetStyle(e.target));
+  }
 
-    // Map init
-    const map = L.map('map', {minZoom:6}).setView([15.0,-86.5],7);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18,attribution:'© OpenStreetMap contributors'}).addTo(map);
+  function drawLayer(mode){
+    const vals = [];
 
-    let geojsonLayer;
-    let featuresData = {}; // keyed by normalized municipality name => data row
-    let rawGeoJSON;
-
-    // Load CSV (data.csv) exported from Excel
-    Papa.parse('data.csv', {
-      download: true,
-      header: true,
-      skipEmptyLines: true,
-      complete: function(results){
-        results.data.forEach(row=>{
-          const key = normalizeName(row.Municipality || row.municipality || row.Municipio || row.municipio);
-          featuresData[key] = {
-            Municipality: row.Municipality || row.municipality || row.Municipio || row.municipio,
-            Department: row.Department || row.department || row.Departamento || row.departamento,
-            Electors2021: Number((row.Electors2021||row.electors2021||row.electores2021||0).toString().replace(/[^0-9.-]/g,'')),
-            Electors2025: Number((row.Electors2025||row.electors2025||row.electores2025||0).toString().replace(/[^0-9.-]/g,'')),
-            Difference: Number((row.Difference||row.difference||0).toString().replace(/[^0-9.-]/g,'')),
-            PercentChange: Number((row.PercentChange||row.percentchange||row.Percent||row.percent||0).toString().replace(/[^0-9.-]/g,''))
-          };
-        });
-        loadGeoJSON();
-      },
-      error: function(err){alert('Error cargando data.csv: '+err.message)}
+    rawGeoJSON.features.forEach(f=>{
+      const r = dataRows[f.properties._norm];
+      if(r) vals.push(mode==="percent" ? r.pct : r.diff);
     });
 
-    // Load GeoJSON file
-    function loadGeoJSON(){
-      fetch('https://github.com/montufarhn/Elecciones-Poder-Deportivo/releases/download/honduras_municipios/honduras_municipios.geojson').then(r=>r.json()).then(geo=>{
-        rawGeoJSON = geo;
-        // standardize property name used for municipality in your GeoJSON
-        // many datasets use NOMBRE or NAME or NOM_MUN
-        geo.features.forEach(f=>{
-          const props = f.properties;
-          // try common property names
-          let name = props.MUNICIPIO || props.MUN_NOMBRE || props.NOMBRE_MUN || props.NOMBRE || props.NAME || props.Municipio || props.municipio || props.nom_mun || props.NOMBRE_M || props.MUN || null;
-          if(!name){
-            // fallback: search any string property
-            for(const k in props) if(typeof props[k]==='string' && props[k].length>2){ name = props[k]; break; }
-          }
-          f.properties._normName = normalizeName(name);
-          f.properties._displayName = name;
-        });
-        drawLayer('percent');
-      }).catch(e=>{alert('Error cargando honduras_municipios.geojson — coloque el archivo en la misma carpeta.\n'+e)})
+    currentBreaks = vals.length
+      ? computeBreaks(vals, colorRamp.length)
+      : [0,1,2,3,4,5];
+
+    if(geojsonLayer) map.removeLayer(geojsonLayer);
+
+    geojsonLayer = L.geoJSON(rawGeoJSON, {
+      style: styleFeature,
+      onEachFeature: onEachFeature
+    }).addTo(map);
+
+    map.fitBounds(geojsonLayer.getBounds(),{padding:[20,20]});
+    renderLegend(mode);
+  }
+
+  function renderLegend(mode){
+    const div = document.getElementById("legend");
+    div.innerHTML = "";
+
+    const box = document.createElement("div");
+    box.className = "legend";
+
+    const title = mode==="percent"
+      ? "% Cambio (2021–2025)"
+      : "Diferencia absoluta";
+
+    box.innerHTML = `<div style="font-weight:600;margin-bottom:6px">${title}</div>`;
+
+    for(let i=0;i<currentBreaks.length;i++){
+      box.innerHTML += `
+        <div style="display:flex;align-items:center;">
+          <div style="width:24px;height:12px;margin-right:8px;background:${colorRamp[i]}"></div>
+          ${Math.round(currentBreaks[i])}
+        </div>`;
     }
 
-    // compute breaks using simple quantiles
-    function computeBreaks(values, buckets){
-      const arr = values.slice().sort((a,b)=>a-b);
-      const breaks = [];
-      for(let i=1;i<buckets;i++){
-        const p = Math.floor(arr.length*(i/buckets));
-        breaks.push(arr[p]);
-      }
-      return breaks;
-    }
+    div.appendChild(box);
+  }
 
-    function styleFeature(feature){
-      const mode = document.getElementById('mode').value;
-      const key = feature.properties._normName;
-      const d = featuresData[key];
-      let v = 0;
-      if(d){
-        v = (mode==='percent') ? d.PercentChange : d.Difference;
-      } else {
-        v = null;
-      }
-      const clr = (v===null || isNaN(v)) ? '#ccc' : getColorForValue(v,currentBreaks);
-      return {
-        weight:1,
-        color:'#444',
-        fillColor: clr,
-        fillOpacity: v===null?0.3:0.8
-      }
-    }
+  document.getElementById("mode").addEventListener("change",()=>{
+    drawLayer(document.getElementById("mode").value);
+  });
 
-    function onEachFeature(feature, layer){
-      const p = feature.properties;
-      const key = p._normName;
-      const d = featuresData[key];
-      let html = '<div class="info">';
-      html += '<strong>'+ (p._displayName || 'Sin nombre') +'</strong><br/>';
-      if(d){
-        html += 'Depto: '+(d.Department||'')+'<br/>';
-        html += 'Electores 2021: '+(d.Electors2021||0).toLocaleString()+'<br/>';
-        html += 'Electores 2025: '+(d.Electors2025||0).toLocaleString()+'<br/>';
-        html += 'Diferencia: '+(d.Difference||0).toLocaleString()+'<br/>';
-        html += '% Cambio: '+(isNaN(d.PercentChange)?'N/A':d.PercentChange.toFixed(2)+'%')+'<br/>';
-      } else {
-        html += '<em>Sin datos en sistema para este municipio</em><br/>';
-      }
-      html += '</div>';
-      layer.bindPopup(html);
-      layer.on({
-        mouseover(e){ e.target.setStyle({weight:2}); },
-        mouseout(e){ geojsonLayer.resetStyle(e.target); }
-      });
-    }
+  document.getElementById("resetView").addEventListener("click",()=>{
+    map.fitBounds(geojsonLayer.getBounds());
+  });
 
-    let currentBreaks = [];
-    function drawLayer(mode){
-      // prepare values
-      const values = [];
-      rawGeoJSON.features.forEach(f=>{
-        const key = f.properties._normName;
-        const d = featuresData[key];
-        if(d){ values.push(mode==='percent' ? d.PercentChange : d.Difference); }
-      });
-      // if no values, create default
-      if(values.length===0){ currentBreaks = [0,1,2,3,4,5]; }
-      else currentBreaks = computeBreaks(values, colorRamp.length);
+</script>
 
-      if(geojsonLayer) map.removeLayer(geojsonLayer);
-
-      geojsonLayer = L.geoJSON(rawGeoJSON, {style:styleFeature, onEachFeature:onEachFeature}).addTo(map);
-
-      // fit view
-      map.fitBounds(geojsonLayer.getBounds(),{padding:[20,20]});
-
-      // legend
-      renderLegend(currentBreaks, mode);
-    }
-
-    function renderLegend(breaks, mode){
-      const legendDiv = document.getElementById('legend');
-      legendDiv.innerHTML = '';
-      const box = document.createElement('div'); box.className='legend';
-      const title = document.createElement('div'); title.style.fontWeight='600'; title.style.marginBottom='6px'; title.textContent = (mode==='percent')?'% Cambio (2021 → 2025)':'Diferencia absoluta';
-      box.appendChild(title);
-      for(let i=0;i<breaks.length;i++){
-        const item = document.createElement('div'); item.style.display='flex'; item.style.alignItems='center';
-        const sw = document.createElement('div'); sw.style.width='24px'; sw.style.height='12px'; sw.style.marginRight='8px'; sw.style.background=colorRamp[i];
-        const txt = document.createElement('div'); txt.style.fontSize='13px';
-        const from = (i===0)?'-Inf':Math.round(breaks[i-1]||0);
-        const to = Math.round(breaks[i]);
-        txt.textContent = from +' — '+ to + (mode==='percent'?' %':'');
-        item.appendChild(sw); item.appendChild(txt); box.appendChild(item);
-      }
-      // last
-      const last = document.createElement('div'); last.style.display='flex'; last.style.alignItems='center';
-      const sw = document.createElement('div'); sw.style.width='24px'; sw.style.height='12px'; sw.style.marginRight='8px'; sw.style.background=colorRamp[colorRamp.length-1];
-      const txt = document.createElement('div'); txt.style.fontSize='13px'; txt.textContent = Math.round(breaks[breaks.length-1]) + ' +';
-      last.appendChild(sw); last.appendChild(txt); box.appendChild(last);
-
-      legendDiv.appendChild(box);
-    }
-
-    document.getElementById('mode').addEventListener('change',()=> drawLayer(document.getElementById('mode').value));
-    document.getElementById('resetView').addEventListener('click',()=> map.fitBounds(geojsonLayer.getBounds()));
-
-
-    // Optional: expose a function to get unmatched municipality list for manual mapping
-    window.getUnmatched = function(){
-      const unmatched = [];
-      rawGeoJSON.features.forEach(f=>{
-        const key = f.properties._normName;
-        if(!featuresData[key]) unmatched.push({geoName: f.properties._displayName, norm: key});
-      });
-      return unmatched;
-    }
-
-  </script>
 </body>
 </html>
