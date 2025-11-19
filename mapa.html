@@ -6,7 +6,7 @@
      CSV expected columns (header row):
      Municipality,Department,Electors2021,Electors2025,Difference,PercentChange
 
-     How to run locally: python -m http.server 8000  (open http://localhost:8000/interactive_honduras_map.html)
+     How to run locally: python -m http.server 8000  (open http://localhost:8000/mapa.html)
 
      Notes: Matching is done by cleaned municipality name (case-insensitive, accents removed).
 -->
@@ -95,7 +95,7 @@
 
     // Load GeoJSON file
     function loadGeoJSON(){
-      fetch('https://github.com/montufarhn/Elecciones-Poder-Deportivo/releases/download/honduras_municipios/honduras_municipios.geojson').then(r=>r.json()).then(geo=>{
+      fetch('honduras_municipios_simplified.geojson').then(r=>r.json()).then(geo=>{
         rawGeoJSON = geo;
         // standardize property name used for municipality in your GeoJSON
         // many datasets use NOMBRE or NAME or NOM_MUN
@@ -111,7 +111,7 @@
           f.properties._displayName = name;
         });
         drawLayer('percent');
-      }).catch(e=>{alert('Error cargando honduras_municipios.geojson — coloque el archivo en la misma carpeta.\n'+e)})
+      }).catch(e=>{alert('Error cargando el archivo GeoJSON — coloque el archivo en la misma carpeta.\n'+e)})
     }
 
     // compute breaks using simple quantiles
