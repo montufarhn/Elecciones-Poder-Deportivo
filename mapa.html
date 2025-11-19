@@ -29,7 +29,7 @@
 </head>
 <body>
   <div class="topbar">
-    <strong>Mapa interactivo — Municipios de Honduras</strong>
+    <strong>Mapa interactivo — Elecciones Generales 2025</strong>
     <div style="margin-left:auto;display:flex;gap:8px">
       <label style="font-size:13px">Visualizar por:</label>
       <select id="mode">
@@ -49,10 +49,25 @@
   <script>
     // --- Utility functions -------------------------------------------------
     function normalizeName(s){
-      if(!s) return '';
+      if (!s) return '';
       return s.toString().trim().toLowerCase()
-        .normalize('NFD').replace(/\p{Diacritic}/gu, '')
-        .replace(/\s+/g,' ').replace(/[^a-z0-9 ]/g,'');
+        .normalize('NFD').replace(/\p{Diacritic}/gu, '') // Reemplaza acentos
+        .replace(/\s+/g, ' ').replace(/[^a-z0-9 ]/g, ''); // Limpia otros caracteres
+    }
+
+    // Mapeo de código de departamento a nombre
+    const departmentCodes = {
+      '01': 'Atlántida', '02': 'Colón', '03': 'Comayagua', '04': 'Copán',
+      '05': 'Cortés', '06': 'Choluteca', '07': 'El Paraíso', '08': 'Francisco Morazán',
+      '09': 'Gracias a Dios', '10': 'Intibucá', '11': 'Islas de la Bahía', '12': 'La Paz',
+      '13': 'Lempira', '14': 'Ocotepeque', '15': 'Olancho', '16': 'Santa Bárbara',
+      '17': 'Valle', '18': 'Yoro'
+    };
+
+    function getDepartmentNameFromId(idmuni) {
+      if (typeof idmuni !== 'string' || idmuni.length < 2) return 'Desconocido';
+      const code = idmuni.substring(0, 2);
+      return departmentCodes[code] || 'Desconocido';
     }
 
     function getColorForValue(v, breaks){
@@ -77,8 +92,10 @@
       header: true,
       skipEmptyLines: true,
       complete: function(results){
-        results.data.forEach(row=>{
-          const key = normalizeName(row.Municipality || row.municipality || row.Municipio || row.municipio);
+        results.data.forEach(row => {
+          const municipality = row.Municipality || row.municipality || row.Municipio || row.municipio;
+          const department = row.Department || row.department || row.Departamento || row.departamento;
+          const key = normalizeName(municipality + department);
           featuresData[key] = {
             Municipality: row.Municipality || row.municipality || row.Municipio || row.municipio,
             Department: row.Department || row.department || row.Departamento || row.departamento,
@@ -97,18 +114,14 @@
     function loadGeoJSON(){
       fetch('honduras_municipios_simplified.geojson').then(r=>r.json()).then(geo=>{
         rawGeoJSON = geo;
-        // standardize property name used for municipality in your GeoJSON
-        // many datasets use NOMBRE or NAME or NOM_MUN
-        geo.features.forEach(f=>{
+        geo.features.forEach(f => {
           const props = f.properties;
-          // try common property names
-          let name = props.MUNICIPIO || props.MUN_NOMBRE || props.NOMBRE_MUN || props.NOMBRE || props.NAME || props.Municipio || props.municipio || props.nom_mun || props.NOMBRE_M || props.MUN || null;
-          if(!name){
-            // fallback: search any string property
-            for(const k in props) if(typeof props[k]==='string' && props[k].length>2){ name = props[k]; break; }
-          }
-          f.properties._normName = normalizeName(name);
-          f.properties._displayName = name;
+          const municipalityName = props.municipio;
+          const departmentName = getDepartmentNameFromId(props.idmuni); // Todavía necesitamos el nombre del departamento para la clave única
+          
+          f.properties._displayName = municipalityName; // Ahora solo el nombre del municipio
+          f.properties._normName = normalizeName(municipalityName + departmentName);
+          f.properties._departmentName = departmentName; // Guardamos el nombre del depto para el popup
         });
         drawLayer('percent');
       }).catch(e=>{alert('Error cargando el archivo GeoJSON — coloque el archivo en la misma carpeta.\n'+e)})
@@ -127,7 +140,7 @@
 
     function styleFeature(feature){
       const mode = document.getElementById('mode').value;
-      const key = feature.properties._normName;
+      const key = feature.properties._normName; // Ahora es una clave única (municipio + depto)
       const d = featuresData[key];
       let v = 0;
       if(d){
@@ -150,7 +163,7 @@
       const d = featuresData[key];
       let html = '<div class="info">';
       html += '<strong>'+ (p._displayName || 'Sin nombre') +'</strong><br/>';
-      if(d){
+      if (d) {
         html += 'Depto: '+(d.Department||'')+'<br/>';
         html += 'Electores 2021: '+(d.Electors2021||0).toLocaleString()+'<br/>';
         html += 'Electores 2025: '+(d.Electors2025||0).toLocaleString()+'<br/>';
