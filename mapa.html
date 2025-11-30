@@ -24,7 +24,16 @@
     body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
     .topbar{padding:8px 12px;background:#0b63a4;color:#fff;display:flex;align-items:center;gap:12px}
     .legend{background:#fff;padding:8px;border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,0.2)}
-    .info{padding:6px}
+    .info{padding:6px 8px}
+    /* Estilos para las etiquetas de los municipios */
+    .municipality-label {
+      background: none;
+      border: none;
+      box-shadow: none;
+      font-weight: bold;
+      color: #000; /* Color del texto */
+      text-shadow: 1px 1px 2px #fff, -1px -1px 2px #fff, 1px -1px 2px #fff, -1px 1px 2px #fff; /* Borde de texto blanco para legibilidad */
+    }
   </style>
 </head>
 <body>
@@ -173,6 +182,14 @@
         html += '<em>Sin datos en sistema para este municipio</em><br/>';
       }
       html += '</div>';
+
+      // Añadir la etiqueta permanente con el nombre del municipio
+      layer.bindTooltip(p._displayName, {
+        permanent: true,
+        direction: 'center',
+        className: 'municipality-label'
+      });
+
       layer.bindPopup(html);
       layer.on({
         mouseover(e){ e.target.setStyle({weight:2}); },
