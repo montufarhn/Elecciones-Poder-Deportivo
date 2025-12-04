@@ -80,10 +80,11 @@
 
 <script>
 /* CONFIG: Pega aquí la URL de tu aplicación web de Google Apps Script */
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxJq8VFpY9yi9G5tWyPnQmue4Ww_6Yn_wS6ess2K0Qj3y78TnhaeF4sIkhnevw0L1AR/exec"; // <-- ¡REEMPLAZA ESTO!
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxJq8VFpY9yi9G5tWyPnQmue4Ww_6Yn_wS6ess2K0Qj3y78TnhaeF4sIkhnevw0L1AR/exec";
 
-const CSV_URL_PRES = `${SCRIPT_URL}?gid=0`;       // GID de la hoja de Presidenciales
-const CSV_URL_ALC  = `${SCRIPT_URL}?gid=353257859`; // GID de la hoja de Alcaldes
+/* CONFIG: URLs de las fuentes de datos */
+const JSON_URL_PRES = 'resultados_presidenciales.json'; // Archivo JSON para Presidenciales
+const JSON_URL_ALC  = 'resultados_alcaldes.json';       // Archivo JSON para Alcaldes
 
 /* CONFIG: Censo electoral local (sin contar el extranjero) */
 const CENSO_TOTAL = 6026477; // Censo Nacional para Presidenciales
@@ -97,63 +98,42 @@ function parseCSV(text) {
   return lines.map(l => l.split(',').map(c => c.trim()));
 }
 
-/* Fetch and map CSV to {labels:[], totals:[]} */
-async function fetchTotals(csvUrl) {
-  const res = await fetch(csvUrl);
-  if (!res.ok) throw new Error('CSV fetch failed: ' + res.status);
-  const txt = await res.text();
-  const rows = parseCSV(txt);
-  // Necesitamos al menos 2 filas: cabeceras e imágenes
-  if (rows.length < 2) return { labels: [], totals: [], imageUrls: [] };
+function getPartyAcronym(partyName) {
+    const partyMap = {
+        "PARTIDO NACIONAL DE HONDURAS": "PNH",
+        "PARTIDO LIBERAL DE HONDURAS": "PLH",
+        "PARTIDO LIBERTAD Y REFUNDACION": "LIBRE",
+        "PARTIDO INNOVACION Y UNIDAD SOCIAL DEMOCRATA": "PINU",
+        "PARTIDO DEMOCRATA CRISTIANO DE HONDURAS": "DC"
+    };
+    return partyMap[partyName.toUpperCase()] || '';
+}
 
-  const headers = rows[0];
-  const candidateHeaders = {};
+/* Fetch and process JSON for presidential results */
+async function fetchResultsFromJSON(url) {
+  const res = await fetch(url, { cache: "no-store" }); // Evita caché para obtener siempre el último archivo
+  if (!res.ok) throw new Error('Fallo al cargar JSON: ' + res.status);
+  const data = await res.json();
 
-  // 1. Identificar las columnas para cada candidato (JRV y Votos)
-  headers.forEach((header, index) => {
-    const candidateName = header.replace(/\s*\((JRV|Votos)\)/g, '').trim();
-    if (!candidateHeaders[candidateName]) {
-      candidateHeaders[candidateName] = {};
-    }
-    if (header.includes('(JRV)')) {
-      candidateHeaders[candidateName].urnaCol = index;
-    }
-    if (header.includes('(Votos)')) {
-      candidateHeaders[candidateName].votosCol = index;
-    }
-  });
-
-  const labels = Object.keys(candidateHeaders);
-  const totals = new Array(labels.length).fill(0);
-  const candidateVoteMaps = labels.map(() => new Map());
-
-  // Fila 2: URLs de las imágenes
-  const imageUrls = labels.map(name => rows[1][candidateHeaders[name].urnaCol] || rows[1][candidateHeaders[name].votosCol]);
-
-  // 2. Procesar votos a partir de la fila 3 usando los índices de columna correctos
-  for (let r = 2; r < rows.length; r++) {
-    labels.forEach((name, i) => {
-      const { urnaCol, votosCol } = candidateHeaders[name];
-
-      const urna = rows[r][urnaCol];
-      const votosStr = rows[r][votosCol];
-
-      if (!urna || !votosStr) return; // Usamos return para saltar a la siguiente iteración en un forEach
-      
-      const votos = parseInt(votosStr, 10);
-      if (!isNaN(votos)) {
-        if (candidateVoteMaps[i].has(urna)) {
-          console.warn(`ADVERTENCIA: JRV duplicada encontrada para "${name}". JRV: ${urna}. El valor anterior (${candidateVoteMaps[i].get(urna)}) será sobrescrito por el nuevo valor (${votos}).`);
-        }
-        candidateVoteMaps[i].set(urna, votos);
-      }
-    });
+  // Adapt to the new JSON structure
+  if (!data || !data.resultados || data.resultados.length === 0) {
+    return { labels: [], totals: [], imageUrls: [], summaryData: {} };
   }
 
-  // 3. Sumar los valores únicos de cada mapa para obtener el total final
-  candidateVoteMaps.forEach((voteMap, i) => { totals[i] = Array.from(voteMap.values()).reduce((sum, v) => sum + v, 0); });
+  const labels = data.resultados.map(c => {
+      const acronym = getPartyAcronym(c.partido);
+      return acronym ? `${c.candidato} (${acronym})` : c.candidato;
+  });
+  const totals = data.resultados.map(c => Number(c.votos.replace(/,/g, '')));
+  const imageUrls = []; // No images in the new JSON structure for presidential candidates
 
-  return { labels, totals, imageUrls };
+  // Extraer metadatos para el resumen
+  const summaryData = {
+    actasProcesadas: Number((data.estadisticas?.totalizacion_actas?.actas_divulgadas || "0").replace(/,/g, '')),
+    actasTotales: Number((data.estadisticas?.totalizacion_actas?.actas_totales || "0").replace(/,/g, '')),
+    // ultimoUpdate is not in the new JSON, we'll use file modification time.
+  };
+  return { labels, totals, imageUrls, summaryData };
 }
 
 /* Chart helpers */
@@ -338,31 +318,36 @@ async function refreshAll(){
 
   try{
     const t0 = Date.now();
-    let [pres, alc] = await Promise.all([ // Usamos 'let' para poder reasignar
-      fetchTotals(CSV_URL_PRES),
-      fetchTotals(CSV_URL_ALC),
+    // Ahora ambas fuentes de datos son JSON
+    let [presData, alcData] = await Promise.all([
+      fetchResultsFromJSON(JSON_URL_PRES),
+      fetchResultsFromJSON(JSON_URL_ALC),
     ]);
 
     // Ordenamos los datos de cada elección
-    pres = sortData(pres);
-    alc = sortData(alc);
+    const pres = sortData(presData);
+    const alc = sortData(alcData);
 
     // --- Calcular y renderizar totales ---
     const totalPres = pres.totals.reduce((a, b) => a + b, 0);
     const totalAlc = alc.totals.reduce((a, b) => a + b, 0);
 
+    // Resumen Presidencial
+    const actasProcPres = presData.summaryData.actasProcesadas || 0;
+    const actasTotalesPres = presData.summaryData.actasTotales || 0;
+    const porcActasPres = actasTotalesPres > 0 ? ((actasProcPres / actasTotalesPres) * 100).toFixed(2) : 0;
     const participationPres = ((totalPres / CENSO_TOTAL) * 100).toFixed(2);
-    const abstencionNumPres = CENSO_TOTAL - totalPres;
-    const abstencionPorcPres = ((abstencionNumPres / CENSO_TOTAL) * 100).toFixed(2);
-    const participationAlc = ((totalAlc / CENSO_ALCALDES) * 100).toFixed(2);
-    const abstencionNumAlc = CENSO_ALCALDES - totalAlc;
-    const abstencionPorcAlc = ((abstencionNumAlc / CENSO_ALCALDES) * 100).toFixed(2);
 
-    document.getElementById('summaryPres').innerHTML = `<strong>Total Votos:</strong> ${totalPres.toLocaleString('es-HN')} | <strong>Participación:</strong> ${participationPres}%<br>
-      <strong>Abstencionismo:</strong> ${abstencionNumPres.toLocaleString('es-HN')} (${abstencionPorcPres}%)`;
-    document.getElementById('summaryAlc').innerHTML = `<strong>Total Votos:</strong> ${totalAlc.toLocaleString('es-HN')} | <strong>Participación:</strong> ${participationAlc}%<br>
-      <strong>Abstencionismo:</strong> ${abstencionNumAlc.toLocaleString('es-HN')} (${abstencionPorcAlc}%)
-    `;
+    // Resumen Alcaldes
+    const actasProcAlc = alcData.summaryData.actasProcesadas || 0;
+    const actasTotalesAlc = alcData.summaryData.actasTotales || 0;
+    const porcActasAlc = actasTotalesAlc > 0 ? ((actasProcAlc / actasTotalesAlc) * 100).toFixed(2) : 0;
+    const participationAlc = ((totalAlc / CENSO_ALCALDES) * 100).toFixed(2);
+
+    document.getElementById('summaryPres').innerHTML = `<strong>Actas Procesadas:</strong> ${actasProcPres.toLocaleString('es-HN')} de ${actasTotalesPres.toLocaleString('es-HN')} (${porcActasPres}%)<br>
+      <strong>Total Votos:</strong> ${totalPres.toLocaleString('es-HN')} | <strong>Participación:</strong> ${participationPres}%`;
+    document.getElementById('summaryAlc').innerHTML = `<strong>Actas Procesadas:</strong> ${actasProcAlc.toLocaleString('es-HN')} de ${actasTotalesAlc.toLocaleString('es-HN')} (${porcActasAlc}%)<br>
+      <strong>Total Votos:</strong> ${totalAlc.toLocaleString('es-HN')} | <strong>Participación:</strong> ${participationAlc}%`;
 
     // Renderizamos todo con los datos ya ordenados
     renderBarChart('chartPres', pres.labels, pres.totals, 'Votos Presidenciales', pres.imageUrls);
@@ -371,7 +356,8 @@ async function refreshAll(){
     renderTable('tableAlc', alc.labels, alc.totals, totalAlc);
 
     // last updated
-    statusEl.textContent = 'Última actualización: ' + new Date().toLocaleString('es-HN');
+    const lastUpdate = new Date().toLocaleString('es-HN'); // Using current time as fallback
+    statusEl.textContent = 'Última actualización: ' + lastUpdate;
     console.log('Refreshed in', Date.now()-t0,'ms');
   }catch(err){
     console.error('Refresh error',err);
