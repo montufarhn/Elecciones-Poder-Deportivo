@@ -3,47 +3,47 @@
     {
       "partido": "PARTIDO LIBERAL DE HONDURAS",
       "candidato": "ALEXANDER LOPEZ ORELLANA",
-      "votos": "20,259",
-      "porcentaje": "37.34"
+      "votos": "20,754",
+      "porcentaje": "37.42"
     },
     {
       "partido": "PARTIDO LIBERTAD Y REFUNDACION",
-      "candidato": "EDUARDO DIAZ VELASQUEZ",
-      "votos": "18,721",
-      "porcentaje": "34.51"
+      "candidato": "EDUARDO DIAS VELASQUEZ",
+      "votos": "19,173",
+      "porcentaje": "34.57"
     },
     {
       "partido": "PARTIDO NACIONAL DE HONDURAS",
       "candidato": "KENYA JEANETTE PERELLO PARANKY",
-      "votos": "10,166",
-      "porcentaje": "18.74"
+      "votos": "10,318",
+      "porcentaje": "18.60"
     },
     {
       "partido": "PARTIDO DEMOCRATA CRISTIANO DE HONDURAS",
       "candidato": "JAIME IZAGUIRRE PEREZ",
-      "votos": "611",
-      "porcentaje": "1.13"
+      "votos": "623",
+      "porcentaje": "1.12"
     },
     {
       "partido": "PARTIDO INNOVACION Y UNIDAD SOCIAL DEMOCRATA",
       "candidato": "BLANCA ASUCENA SABILLON GUZMAN",
-      "votos": "607",
-      "porcentaje": "1.12"
+      "votos": "615",
+      "porcentaje": "1.11"
     }
   ],
   "estadisticas": {
     "totalizacion_actas": {
       "actas_totales": "414",
-      "actas_divulgadas": "333"
+      "actas_divulgadas": "345"
     },
     "distribucion_votos": {
-      "validos": "50,364",
-      "nulos": "2,556",
-      "blancos": "1,333"
+      "validos": "51,483",
+      "nulos": "2,614",
+      "blancos": "1,367"
     },
     "estado_actas_divulgadas": {
-      "actas_correctas": "278",
-      "actas_inconsistentes": "55"
+      "actas_correctas": "285",
+      "actas_inconsistentes": "60"
     }
   }
 }
