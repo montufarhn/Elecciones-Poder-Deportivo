@@ -36,10 +36,10 @@
       <strong>Aviso Importante:</strong> Los datos presentados son preliminares y provienen exclusivamente de nuestros corresponsales en cada uno de los centros de votación en <strong>El Progreso, Yoro</strong>.
       Estos resultados no son definitivos y no declaran a ningún candidato como ganador.
     </div>
-
-    <div class="row g-4">
+    
+    <div class="row g-4 justify-content-center">
       <!-- Presidenciales -->
-      <div class="col-lg-6">
+      <div class="col-md-6 col-lg-6">
         <div class="card h-100">
           <div class="card-header">
             <h3 class="card-title mb-0">Presidenciales</h3>
@@ -58,7 +58,7 @@
       </div>
 
       <!-- Alcaldes -->
-      <div class="col-lg-6">
+      <div class="col-md-6 col-lg-6">
         <div class="card h-100">
           <div class="card-header">
             <h3 class="card-title mb-0">Alcaldes</h3>
@@ -109,8 +109,17 @@ function getPartyAcronym(partyName) {
     return partyMap[partyName.toUpperCase()] || '';
 }
 
+// Mapping for Alcaldes: Party Name to Candidate Name
+const ALCALDES_CANDIDATE_MAP = {
+  "PARTIDO LIBERAL DE HONDURAS": "ALEXANDER LOPEZ ORELLANA",
+  "PARTIDO LIBERTAD Y REFUNDACION": "EDUARDO DIAS VELASQUEZ",
+  "PARTIDO NACIONAL DE HONDURAS": "KENYA JEANETTE PERELLO PARANKY",
+  "PARTIDO DEMOCRATA CRISTIANO DE HONDURAS": "JAIME IZAGUIRRE PEREZ",
+  "PARTIDO INNOVACION Y UNIDAD SOCIAL DEMOCRATA": "BLANCA ASUCENA SABILLON GUZMAN"
+};
+
 /* Fetch and process JSON for presidential results */
-async function fetchResultsFromJSON(url) {
+async function fetchResultsFromJSON(url, isMayoralData = false) {
   const res = await fetch(url, { cache: "no-store" }); // Evita caché para obtener siempre el último archivo
   if (!res.ok) throw new Error('Fallo al cargar JSON: ' + res.status);
   const data = await res.json();
@@ -121,8 +130,13 @@ async function fetchResultsFromJSON(url) {
   }
 
   const labels = data.resultados.map(c => {
-      const acronym = getPartyAcronym(c.partido);
-      return acronym ? `${c.candidato} (${acronym})` : c.candidato;
+    let baseCandidateName = c.candidato;
+    // Aplica el mapeo de alcaldes SÓLO si es data de alcaldes
+    if (isMayoralData && ALCALDES_CANDIDATE_MAP[c.partido.toUpperCase()]) {
+      baseCandidateName = ALCALDES_CANDIDATE_MAP[c.partido.toUpperCase()];
+    }
+    const acronym = getPartyAcronym(c.partido); // Obtiene el acrónimo del partido
+    return acronym ? `${baseCandidateName} (${acronym})` : baseCandidateName; // Retorna el nombre completo con acrónimo
   });
   const totals = data.resultados.map(c => Number(c.votos.replace(/,/g, '')));
   const imageUrls = []; // No images in the new JSON structure for presidential candidates
@@ -144,11 +158,11 @@ const CHART_COLORS = ['#36a2eb', '#4bc0c0', '#9966ff', '#ffcd56', '#c9cbcf']; //
 
 // Colores específicos por partido
 const PARTY_COLORS = {
-  '(PNH)': '#00529F',   // Azul Marino para el Partido Nacional
-  '(PLH)': '#E41E26',   // Rojo para el Partido Liberal
-  '(DC)': 'green',      // Verde para la Democracia Cristiana
-  '(PINU)': 'orange',   // Naranja para PINU
-  '(LIBRE)': '#F05A28', // Naranja para el Partido Libre
+  'PNH': '#00529F',   // Azul Marino para el Partido Nacional
+  'PLH': '#E41E26',   // Rojo para el Partido Liberal
+  'DC': 'green',      // Verde para la Democracia Cristiana
+  'PINU': 'orange',   // Naranja para PINU
+  'LIBRE': '#F05A28', // Naranja para el Partido Libre
 };
 
 const DEFAULT_COLOR = '#6c757d'; // Un color gris para candidatos sin partido definido
@@ -205,6 +219,9 @@ Chart.register(candidateImagesPlugin);
 
 function renderBarChart(canvasId, labels, values, title, imageUrls){
   const ctx = document.getElementById(canvasId);
+  // Ajustar la altura del canvas dinámicamente
+  const newHeight = Math.max(400, labels.length * 50); // 50px por candidato, mínimo 400px
+  ctx.style.height = `${newHeight}px`;
   if(!ctx) return;
   const data = {
     labels,
@@ -212,10 +229,12 @@ function renderBarChart(canvasId, labels, values, title, imageUrls){
       label: title,
       data: values,
       backgroundColor: labels.map((label, i) => {
-        // Busca si el nombre del candidato contiene una sigla de partido
+        // Extrae la sigla del partido del label, ej: "JUAN PEREZ (PNH)" -> "PNH"
+        const match = label.match(/\(([^)]+)\)/);
+        const acronym = match ? match[1] : null;
         for (const party in PARTY_COLORS) {
-          if (label.includes(party)) {
-            return PARTY_COLORS[party];
+          if (acronym === party) {
+            return PARTY_COLORS[acronym];
           }
         }
         // Si no se encuentra un partido, usa un color de la paleta de fallback
@@ -320,8 +339,8 @@ async function refreshAll(){
     const t0 = Date.now();
     // Ahora ambas fuentes de datos son JSON
     let [presData, alcData] = await Promise.all([
-      fetchResultsFromJSON(JSON_URL_PRES),
-      fetchResultsFromJSON(JSON_URL_ALC),
+      fetchResultsFromJSON(JSON_URL_PRES, false), // Presidenciales: NO es data de alcaldes
+      fetchResultsFromJSON(JSON_URL_ALC, true),  // Alcaldes: SÍ es data de alcaldes
     ]);
 
     // Ordenamos los datos de cada elección
