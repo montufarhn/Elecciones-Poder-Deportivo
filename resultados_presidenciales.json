@@ -3,47 +3,47 @@
     {
       "partido": "PARTIDO NACIONAL DE HONDURAS",
       "candidato": "NASRY JUAN ASFURA ZABLAH",
-      "votos": "1,190,459",
-      "porcentaje": "37.94"
+      "votos": "1,192,984",
+      "porcentaje": "37.96"
     },
     {
       "partido": "PARTIDO LIBERAL DE HONDURAS",
       "candidato": "SALVADOR ALEJANDRO CESAR NASRALLA SALUM",
-      "votos": "1,176,907",
+      "votos": "1,178,956",
       "porcentaje": "37.51"
     },
     {
       "partido": "PARTIDO LIBERTAD Y REFUNDACION",
       "candidato": "RIXI RAMONA MONCADA GODOY",
-      "votos": "567,420",
-      "porcentaje": "18.09"
+      "votos": "568,389",
+      "porcentaje": "18.08"
     },
     {
       "partido": "PARTIDO INNOVACION Y UNIDAD SOCIAL DEMOCRATA",
       "candidato": "JORGE NELSON AVILA GUTIERREZ",
-      "votos": "24,436",
+      "votos": "24,511",
       "porcentaje": "0.78"
     },
     {
       "partido": "PARTIDO DEMOCRATA CRISTIANO DE HONDURAS",
       "candidato": "MARIO ENRIQUE RIVERA CALLEJAS",
-      "votos": "5,151",
+      "votos": "5,166",
       "porcentaje": "0.16"
     }
   ],
   "estadisticas": {
     "totalizacion_actas": {
       "actas_totales": "19,167",
-      "actas_divulgadas": "17,683"
+      "actas_divulgadas": "17,721"
     },
     "distribucion_votos": {
-      "validos": "2,964,373",
+      "validos": "2,970,006",
       "nulos": "111,197",
       "blancos": "61,934"
     },
     "estado_actas_divulgadas": {
-      "actas_correctas": "15,142",
-      "actas_inconsistentes": "2,541"
+      "actas_correctas": "15,170",
+      "actas_inconsistentes": "2,551"
     }
   }
 }
