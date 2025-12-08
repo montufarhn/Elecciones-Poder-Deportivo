@@ -219,9 +219,7 @@ Chart.register(candidateImagesPlugin);
 
 function renderBarChart(canvasId, labels, values, title, imageUrls){
   const ctx = document.getElementById(canvasId);
-  // Ajustar la altura del canvas dinámicamente
-  const newHeight = Math.max(400, labels.length * 50); // 50px por candidato, mínimo 400px
-  ctx.style.height = `${newHeight}px`;
+  
   if(!ctx) return;
   const data = {
     labels,
@@ -356,17 +354,19 @@ async function refreshAll(){
     const actasTotalesPres = presData.summaryData.actasTotales || 0;
     const porcActasPres = actasTotalesPres > 0 ? ((actasProcPres / actasTotalesPres) * 100).toFixed(2) : 0;
     const participationPres = ((totalPres / CENSO_TOTAL) * 100).toFixed(2);
+    const abstentionPres = (100 - participationPres).toFixed(2);
 
     // Resumen Alcaldes
     const actasProcAlc = alcData.summaryData.actasProcesadas || 0;
     const actasTotalesAlc = alcData.summaryData.actasTotales || 0;
     const porcActasAlc = actasTotalesAlc > 0 ? ((actasProcAlc / actasTotalesAlc) * 100).toFixed(2) : 0;
     const participationAlc = ((totalAlc / CENSO_ALCALDES) * 100).toFixed(2);
+    const abstentionAlc = (100 - participationAlc).toFixed(2);
 
     document.getElementById('summaryPres').innerHTML = `<strong>Actas Procesadas:</strong> ${actasProcPres.toLocaleString('es-HN')} de ${actasTotalesPres.toLocaleString('es-HN')} (${porcActasPres}%)<br>
-      <strong>Total Votos:</strong> ${totalPres.toLocaleString('es-HN')} | <strong>Participación:</strong> ${participationPres}%`;
+      <strong>Total Votos:</strong> ${totalPres.toLocaleString('es-HN')} | <strong>Participación:</strong> ${participationPres}% | <strong class="text-danger">Abstencionismo:</strong> ${abstentionPres}%`;
     document.getElementById('summaryAlc').innerHTML = `<strong>Actas Procesadas:</strong> ${actasProcAlc.toLocaleString('es-HN')} de ${actasTotalesAlc.toLocaleString('es-HN')} (${porcActasAlc}%)<br>
-      <strong>Total Votos:</strong> ${totalAlc.toLocaleString('es-HN')} | <strong>Participación:</strong> ${participationAlc}%`;
+      <strong>Total Votos:</strong> ${totalAlc.toLocaleString('es-HN')} | <strong>Participación:</strong> ${participationAlc}% | <strong class="text-danger">Abstencionismo:</strong> ${abstentionAlc}%`;
 
     // Renderizamos todo con los datos ya ordenados
     renderBarChart('chartPres', pres.labels, pres.totals, 'Votos Presidenciales', pres.imageUrls);
