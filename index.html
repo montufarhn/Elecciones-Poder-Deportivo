@@ -141,11 +141,15 @@ async function fetchResultsFromJSON(url, isMayoralData = false) {
   const totals = data.resultados.map(c => Number(c.votos.replace(/,/g, '')));
   const imageUrls = []; // No images in the new JSON structure for presidential candidates
 
-  // Extraer metadatos para el resumen
+  // Extraer metadatos para el resumen desde la estructura anidada correcta
+  const stats = data.estadisticas || {};
+  const totalizacion = stats.totalizacion_actas || {};
+  const distribucion = stats.distribucion_votos || {};
   const summaryData = {
-    actasProcesadas: Number((data.estadisticas?.totalizacion_actas?.actas_divulgadas || "0").replace(/,/g, '')),
-    actasTotales: Number((data.estadisticas?.totalizacion_actas?.actas_totales || "0").replace(/,/g, '')),
-    // ultimoUpdate is not in the new JSON, we'll use file modification time.
+    actasProcesadas: Number((totalizacion.actas_divulgadas || "0").replace(/,/g, '')),
+    actasTotales: Number((totalizacion.actas_totales || "0").replace(/,/g, '')),
+    votosNulos: Number((distribucion.nulos || "0").replace(/,/g, '')),
+    votosBlancos: Number((distribucion.blancos || "0").replace(/,/g, '')),
   };
   return { labels, totals, imageUrls, summaryData };
 }
@@ -350,23 +354,27 @@ async function refreshAll(){
     const totalAlc = alc.totals.reduce((a, b) => a + b, 0);
 
     // Resumen Presidencial
-    const actasProcPres = presData.summaryData.actasProcesadas || 0;
-    const actasTotalesPres = presData.summaryData.actasTotales || 0;
+    const { actasProcesadas: actasProcPres = 0, actasTotales: actasTotalesPres = 0, votosNulos: nulosPres = 0, votosBlancos: blancosPres = 0 } = presData.summaryData || {};
     const porcActasPres = actasTotalesPres > 0 ? ((actasProcPres / actasTotalesPres) * 100).toFixed(2) : 0;
-    const participationPres = ((totalPres / CENSO_TOTAL) * 100).toFixed(2);
+    const totalVotosValidosPres = totalPres; // Suma de votos por candidatos
+    const totalVotosEmitidosPres = totalVotosValidosPres + nulosPres + blancosPres;
+    const participationPres = CENSO_TOTAL > 0 ? ((totalVotosEmitidosPres / CENSO_TOTAL) * 100).toFixed(2) : 0;
     const abstentionPres = (100 - participationPres).toFixed(2);
 
     // Resumen Alcaldes
-    const actasProcAlc = alcData.summaryData.actasProcesadas || 0;
-    const actasTotalesAlc = alcData.summaryData.actasTotales || 0;
+    const { actasProcesadas: actasProcAlc = 0, actasTotales: actasTotalesAlc = 0, votosNulos: nulosAlc = 0, votosBlancos: blancosAlc = 0 } = alcData.summaryData || {};
     const porcActasAlc = actasTotalesAlc > 0 ? ((actasProcAlc / actasTotalesAlc) * 100).toFixed(2) : 0;
-    const participationAlc = ((totalAlc / CENSO_ALCALDES) * 100).toFixed(2);
+    const totalVotosValidosAlc = totalAlc; // Suma de votos por partidos
+    const totalVotosEmitidosAlc = totalVotosValidosAlc + nulosAlc + blancosAlc;
+    const participationAlc = CENSO_ALCALDES > 0 ? ((totalVotosEmitidosAlc / CENSO_ALCALDES) * 100).toFixed(2) : 0;
     const abstentionAlc = (100 - participationAlc).toFixed(2);
 
     document.getElementById('summaryPres').innerHTML = `<strong>Actas Procesadas:</strong> ${actasProcPres.toLocaleString('es-HN')} de ${actasTotalesPres.toLocaleString('es-HN')} (${porcActasPres}%)<br>
-      <strong>Total Votos:</strong> ${totalPres.toLocaleString('es-HN')} | <strong>Participación:</strong> ${participationPres}% | <strong class="text-danger">Abstencionismo:</strong> ${abstentionPres}%`;
+      <strong>Votos Válidos:</strong> ${totalVotosValidosPres.toLocaleString('es-HN')} | <strong>Nulos:</strong> ${nulosPres.toLocaleString('es-HN')} | <strong>Blancos:</strong> ${blancosPres.toLocaleString('es-HN')}<br>
+      <strong>Total Votos Emitidos:</strong> ${totalVotosEmitidosPres.toLocaleString('es-HN')} | <strong>Participación:</strong> ${participationPres}% | <strong class="text-danger">Abstencionismo:</strong> ${abstentionPres}%`;
     document.getElementById('summaryAlc').innerHTML = `<strong>Actas Procesadas:</strong> ${actasProcAlc.toLocaleString('es-HN')} de ${actasTotalesAlc.toLocaleString('es-HN')} (${porcActasAlc}%)<br>
-      <strong>Total Votos:</strong> ${totalAlc.toLocaleString('es-HN')} | <strong>Participación:</strong> ${participationAlc}% | <strong class="text-danger">Abstencionismo:</strong> ${abstentionAlc}%`;
+      <strong>Votos Válidos:</strong> ${totalVotosValidosAlc.toLocaleString('es-HN')} | <strong>Nulos:</strong> ${nulosAlc.toLocaleString('es-HN')} | <strong>Blancos:</strong> ${blancosAlc.toLocaleString('es-HN')}<br>
+      <strong>Total Votos Emitidos:</strong> ${totalVotosEmitidosAlc.toLocaleString('es-HN')} | <strong>Participación:</strong> ${participationAlc}% | <strong class="text-danger">Abstencionismo:</strong> ${abstentionAlc}%`;
 
     // Renderizamos todo con los datos ya ordenados
     renderBarChart('chartPres', pres.labels, pres.totals, 'Votos Presidenciales', pres.imageUrls);
