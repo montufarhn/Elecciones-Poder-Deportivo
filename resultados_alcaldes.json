@@ -3,47 +3,47 @@
     {
       "partido": "PARTIDO LIBERAL DE HONDURAS",
       "candidato": "PARTIDO LIBERAL DE HONDURAS ",
-      "votos": "20,754",
-      "porcentaje": "37.42"
+      "votos": "24,608",
+      "porcentaje": "36.58"
     },
     {
       "partido": "PARTIDO LIBERTAD Y REFUNDACION",
       "candidato": "PARTIDO LIBERTAD Y REFUNDACION ",
-      "votos": "19,173",
-      "porcentaje": "34.57"
+      "votos": "22,774",
+      "porcentaje": "33.86"
     },
     {
       "partido": "PARTIDO NACIONAL DE HONDURAS",
       "candidato": "PARTIDO NACIONAL DE HONDURAS ",
-      "votos": "10,318",
-      "porcentaje": "18.60"
+      "votos": "11,751",
+      "porcentaje": "17.47"
     },
     {
       "partido": "PARTIDO DEMOCRATA CRISTIANO DE HONDURAS",
       "candidato": "PARTIDO DEMOCRATA CRISTIANO DE HONDURAS ",
-      "votos": "623",
-      "porcentaje": "1.12"
+      "votos": "692",
+      "porcentaje": "1.03"
     },
     {
       "partido": "PARTIDO INNOVACION Y UNIDAD SOCIAL DEMOCRATA",
       "candidato": "PARTIDO INNOVACION Y UNIDAD SOCIAL DEMOCRATA ",
-      "votos": "615",
-      "porcentaje": "1.11"
+      "votos": "690",
+      "porcentaje": "1.03"
     }
   ],
   "estadisticas": {
     "totalizacion_actas": {
       "actas_totales": "414",
-      "actas_divulgadas": "345"
+      "actas_divulgadas": "413"
     },
     "distribucion_votos": {
-      "validos": "51,483",
-      "nulos": "2,614",
-      "blancos": "1,367"
+      "validos": "60,515",
+      "nulos": "3,713",
+      "blancos": "3,039"
     },
     "estado_actas_divulgadas": {
-      "actas_correctas": "285",
-      "actas_inconsistentes": "60"
+      "actas_correctas": "334",
+      "actas_inconsistentes": "79"
     }
   }
 }
