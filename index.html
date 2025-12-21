@@ -76,12 +76,34 @@
         </div>
       </div>
     </div>
+
+    <div class="row g-4 mt-4">
+      <!-- Corporación Municipal -->
+      <div class="col-12">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title mb-0">Integración Corporación Municipal El Progreso</h3>
+          </div>
+          <div class="card-body">
+            <div class="card-scrollable-content">
+              <table id="tableRegidores" class="table table-striped">
+                <thead>
+                  <tr>
+                    <th>Cargo</th>
+                    <th>Partido Político</th>
+                    <th>Candidato(a) electo(a)</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
 <script>
-/* CONFIG: Pega aquí la URL de tu aplicación web de Google Apps Script */
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxJq8VFpY9yi9G5tWyPnQmue4Ww_6Yn_wS6ess2K0Qj3y78TnhaeF4sIkhnevw0L1AR/exec";
-
 /* CONFIG: URLs de las fuentes de datos */
 const JSON_URL_PRES = 'resultados_presidenciales.json'; // Archivo JSON para Presidenciales
 const JSON_URL_ALC  = 'resultados_alcaldes.json';       // Archivo JSON para Alcaldes
@@ -92,12 +114,8 @@ const CENSO_TOTAL = 6026477; // Censo Nacional para Presidenciales
 /* CONFIG: Censo electoral para Alcaldes de El Progreso, Yoro */
 const CENSO_ALCALDES = 136803;
 
-/* Utility: simple CSV parser (works con CSV básico, sin comillas complejas) */
-function parseCSV(text) {
-  const lines = text.trim().split(/\r?\n/); // Más robusto para saltos de línea
-  return lines.map(l => l.split(',').map(c => c.trim()));
-}
-
+/* CONFIG: URL para los datos de la corporación municipal */
+const JSON_URL_REG = 'resultados_regidores.json'; // Archivo JSON para Regidores
 function getPartyAcronym(partyName) {
     const partyMap = {
         "PARTIDO NACIONAL DE HONDURAS": "PNH",
@@ -154,6 +172,30 @@ async function fetchResultsFromJSON(url, isMayoralData = false) {
   return { labels, totals, imageUrls, summaryData };
 }
 
+/* Fetch and process JSON for regidores results */
+async function fetchRegidoresFromJSON(url) {
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error('Fallo al cargar JSON de regidores: ' + res.status);
+  const data = await res.json();
+  // El JSON es un array de objetos directamente en la raíz.
+  return data || [];
+}
+
+/* Render table for regidores */
+function renderRegidoresTable(tableId, data) {
+  const tbody = document.querySelector(`#${tableId} tbody`);
+  if (!tbody) return;
+  tbody.innerHTML = ''; // Limpiar datos anteriores
+  data.forEach(regidor => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${regidor["Cargo"]}</td>
+      <td>${regidor["Partido Político"]}</td>
+      <td>${regidor["Candidato(a) electo(a)"]}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
 /* Chart helpers */
 let chartPres=null, chartAlc=null;
 
@@ -340,9 +382,10 @@ async function refreshAll(){
   try{
     const t0 = Date.now();
     // Ahora ambas fuentes de datos son JSON
-    let [presData, alcData] = await Promise.all([
+    let [presData, alcData, regData] = await Promise.all([
       fetchResultsFromJSON(JSON_URL_PRES, false), // Presidenciales: NO es data de alcaldes
       fetchResultsFromJSON(JSON_URL_ALC, true),  // Alcaldes: SÍ es data de alcaldes
+      fetchRegidoresFromJSON(JSON_URL_REG)       // Regidores
     ]);
 
     // Ordenamos los datos de cada elección
@@ -381,6 +424,7 @@ async function refreshAll(){
     renderTable('tablePres', pres.labels, pres.totals, totalPres);
     renderBarChart('chartAlc', alc.labels, alc.totals, 'Votos Alcaldes', alc.imageUrls);
     renderTable('tableAlc', alc.labels, alc.totals, totalAlc);
+    renderRegidoresTable('tableRegidores', regData);
 
     // last updated
     const lastUpdate = new Date().toLocaleString('es-HN'); // Using current time as fallback
